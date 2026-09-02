@@ -1,51 +1,39 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # blockchain-helper-15
 
-Blockchain-helper-15 is a Python utility designed to simplify interactions with various blockchain networks, making it easier for developers to build and manage decentralized applications. With an emphasis on user-friendly functionalities, this project empowers both novice and experienced crypto enthusiasts to harness the power of blockchain technology with minimal friction.
+blockchain-helper-15 provides a streamlined Python interface for essential blockchain operations in crypto projects. Developers can quickly generate wallets, sign transactions, and fetch on-chain data across EVM networks with minimal boilerplate code.
 
 ## Features
-
-- **Multi-Blockchain Support**: Interact seamlessly with Ethereum, Bitcoin, and other major blockchains from a unified interface.
-- **Transaction Management**: Create, sign, and send transactions effortlessly, including options for gas estimation and fees calculation.
-- **Wallet Integration**: Securely manage wallet addresses and keys using industry-standard cryptographic practices.
-- **Real-time Data Access**: Fetch and display live blockchain statistics, including transaction confirmation times and active network nodes.
+- Generate secure BIP-39 compliant wallets with private key derivation
+- Build and sign Ethereum transactions with automatic gas and nonce handling
+- Retrieve account balances and token holdings from multiple blockchain networks
+- Verify signatures and interact with basic smart contract functions
 
 ## Installation
-
-To get started with blockchain-helper-15, clone the repository and install the required dependencies:
 
 ```bash
 git clone https://github.com/Developer/blockchain-helper-15.git
 cd blockchain-helper-15
-pip install -r requirements.txt
+pip install .
 ```
 
-## Basic Usage Example
+## Basic Usage
 
-To demonstrate using blockchain-helper-15, follow these simple steps:
+```python
+from blockchain_helper_15 import Wallet
 
-1. Import the library in your Python script:
+wallet = Wallet.new()
+print(wallet.address)
 
-   ```python
-   from blockchain_helper import BlockchainHelper
-   ```
-
-2. Initialize the helper and connect to a blockchain:
-
-   ```python
-   bh = BlockchainHelper(network='Ethereum')
-   ```
-
-3. Create and send a transaction:
-
-   ```python
-   tx_hash = bh.send_transaction(from_address='your_wallet_address', to_address='recipient_address', amount=0.1)
-   print(f"Transaction sent: {tx_hash}")
-   ```
+tx_params = {
+    "to": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+    "value": 10**18,
+    "chain_id": 1
+}
+signed_tx = wallet.sign_transaction(tx_params)
+```
 
 ## License
 
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-
-For more details on licensing, please see the [LICENSE](LICENSE) file in this repository. 
-
-Explore blockchain-helper-15 to streamline your blockchain interactions and enhance your development workflow!
+This project is licensed under the MIT License.
