@@ -1,46 +1,42 @@
-import time
-import requests
-from functools import wraps
-
-def retry(max_retries=3, backoff=1.0):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception = None
-            for attempt in range(max_retries):
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    last_exception = e
-                    if attempt < max_retries - 1:
-                        time.sleep(backoff * (2 ** attempt))
-            raise last_exception
-        return wrapper
-    return decorator
-
-class NetworkHandler:
-    def __init__(self, endpoint):
-        self.endpoint = endpoint
-
-    @retry(max_retries=5, backoff=0.5)
-    def fetch_data(self, method, params):
-        payload = {
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": params,
-            "id": 1
-        }
-        response = requests.post(self.endpoint, json=payload, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        if "error" in data:
-            raise Exception(data["error"])
-        return data["result"]
-
-    @retry(max_retries=3, backoff=1.0)
-    def get_balance(self, address):
-        return self.fetch_data("eth_getBalance", [address, "latest"])
-
-    @retry(max_retries=3, backoff=1.0)
-    def get_transaction(self, tx_hash):
-        return self.fetch_data("eth_getTransactionByHash", [tx_hash])
+import re
+def is_valid_address(address):
+    if not isinstance(address, str):
+        return False
+    return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
+def is_valid_amount(amount):
+    if not isinstance(amount, (int, float)):
+        return False
+    return amount > 0
+def is_valid_hash(tx_hash):
+    if not isinstance(tx_hash, str):
+        return False
+    return bool(re.match(r'^0x[a-fA-F0-9]{64}$', tx_hash))
+def main_processing_loop(data):
+    processed = []
+    for item in data:
+        if not isinstance(item, dict):
+            processed.append({'status': 'error', 'reason': 'invalid input type'})
+            continue
+        sender = item.get('sender')
+        recipient = item.get('recipient')
+        amount = item.get('amount')
+        tx_hash = item.get('tx_hash')
+        if not is_valid_address(sender):
+            processed.append({'status': 'invalid', 'reason': 'bad sender address'})
+            continue
+        if not is_valid_address(recipient):
+            processed.append({'status': 'invalid', 'reason': 'bad recipient address'})
+            continue
+        if not is_valid_amount(amount):
+            processed.append({'status': 'invalid', 'reason': 'bad amount'})
+            continue
+        if tx_hash and not is_valid_hash(tx_hash):
+            processed.append({'status': 'invalid', 'reason': 'bad tx hash'})
+            continue
+        result = {'status': 'processed', 'sender': sender, 'recipient': recipient, 'amount': amount, 'tx_hash': tx_hash}
+        processed.append(result)
+    return processed
+if __name__ == '__main__':
+    sample_data = [{'sender': '0x1234567890123456789012345678901234567890', 'recipient': '0x0987654321098765432109876543210987654321', 'amount': 10.5, 'tx_hash': '0x' + 'a'*64}, {'sender': '0x1234567890123456789012345678901234567890', 'recipient': 'invalid', 'amount': 5}, {'sender': '0x1234567890123456789012345678901234567890', 'recipient': '0x0987654321098765432109876543210987654321', 'amount': -1}, 'not a dict']
+    output = main_processing_loop(sample_data)
+    print(output)
