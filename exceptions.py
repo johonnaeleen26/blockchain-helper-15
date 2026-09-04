@@ -1,41 +1,34 @@
 class BlockchainError(Exception):
-    """Base exception for all blockchain helper errors."""
+    """Base exception for blockchain-helper-15 operations."""
 
-    def __init__(self, message: str, code: int | None = None) -> None:
-        super().__init__(message)
-        self.message = message
-        self.code = code
+class ConnectionError(BlockchainError):
+    """Raised when network connection to node fails."""
 
-    def __str__(self) -> str:
-        if self.code is not None:
-            return f"[{self.code}] {self.message}"
-        return self.message
+class ValidationError(BlockchainError):
+    """Raised when data validation fails."""
 
+class TransactionError(BlockchainError):
+    """Raised when transaction signing or broadcast fails."""
 
-class InvalidAddressError(BlockchainError):
-    """Raised when a blockchain address format is invalid."""
+class InsufficientFundsError(TransactionError):
+    """Raised when account balance is insufficient for operation."""
 
+class RateLimitError(BlockchainError):
+    """Raised when API rate limit is exceeded."""
 
-class InsufficientBalanceError(BlockchainError):
-    """Raised when an account lacks required funds for a transaction."""
+class ConfigurationError(BlockchainError):
+    """Raised when node configuration is invalid."""
 
-    def __init__(
-        self, message: str, required: float, available: float
-    ) -> None:
-        super().__init__(message, code=402)
-        self.required = required
-        self.available = available
+def raise_if_invalid(condition: bool, message: str) -> None:
+    """Raise ValidationError if condition is False."""
+    if not condition:
+        raise ValidationError(message)
 
-
-class TransactionFailedError(BlockchainError):
-    """Raised when a transaction execution or broadcast fails."""
-
-    def __init__(
-        self, message: str, tx_hash: str | None = None, code: int = 500
-    ) -> None:
-        super().__init__(message, code=code)
-        self.tx_hash = tx_hash
-
-
-class NodeConnectionError(BlockchainError):
-    """Raised when connection to an RPC node fails."""
+def handle_rpc_error(code: int, message: str) -> None:
+    """Route raw RPC errors to specific exceptions."""
+    if code == -32000:
+        raise InsufficientFundsError(message)
+    elif code == 429:
+        raise RateLimitError(message)
+    else:
+        raise BlockchainError(f"RPC error {code}: {message}")
