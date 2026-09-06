@@ -1,21 +1,37 @@
 import re
-from typing import Union
 
-ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
+class InputValidator:
+    ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
+    TX_HASH_PATTERN = re.compile(r'^0x[a-fA-F0-9]{64}$')
 
-def validate_eth_address(address: str) -> bool:
-    return bool(ADDRESS_PATTERN.match(address))
+    @staticmethod
+    def is_valid_address(address: str) -> bool:
+        return bool(InputValidator.ADDRESS_PATTERN.match(address))
 
-def format_wei_to_eth(wei: Union[int, str]) -> float:
-    try:
-        return float(wei) / 10**18
-    except (ValueError, TypeError):
-        return 0.0
+    @staticmethod
+    def is_valid_tx_hash(tx_hash: str) -> bool:
+        return bool(InputValidator.TX_HASH_PATTERN.match(tx_hash))
 
-def sanitize_currency_pair(pair: str) -> str:
-    return pair.strip().upper().replace('/', '_')
+    @staticmethod
+    def validate_amount(amount: str) -> bool:
+        try:
+            value = float(amount)
+            return value > 0
+        except (ValueError, TypeError):
+            return False
 
-def is_valid_transaction_hash(tx_hash: str) -> bool:
-    if not isinstance(tx_hash, str) or len(tx_hash) != 66:
+def validate_payload(data: dict) -> bool:
+    required_fields = ['address', 'amount', 'tx_hash']
+    if not all(k in data for k in required_fields):
         return False
-    return tx_hash.startswith('0x') and all(c in '0123456789abcdefABCDEF' for c in tx_hash[2:])
+    
+    if not InputValidator.is_valid_address(data['address']):
+        return False
+    
+    if not InputValidator.validate_amount(data['amount']):
+        return False
+        
+    if not InputValidator.is_valid_tx_hash(data['tx_hash']):
+        return False
+        
+    return True
