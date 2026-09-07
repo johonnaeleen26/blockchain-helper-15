@@ -1,40 +1,32 @@
-import hashlib
-import json
+import time
+import functools
+import logging
+from typing import Callable, Any
 
-def hash_transaction(transaction):
-    tx_str = json.dumps(transaction, sort_keys=True)
-    return hashlib.sha256(tx_str.encode()).hexdigest()
+logger = logging.getLogger(__name__)
 
-def generate_block_hash(previous_hash, transactions, nonce):
-    block_data = previous_hash + json.dumps(transactions, sort_keys=True) + str(nonce)
-    return hashlib.sha256(block_data.encode()).hexdigest()
+def retry(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            attempts = 0
+            current_delay = delay
+            while attempts < max_attempts:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    attempts += 1
+                    if attempts == max_attempts:
+                        logger.error(f"failed after {max_attempts} attempts: {e}")
+                        raise
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+        return wrapper
+    return decorator
 
-def is_valid_hash(hash_str, difficulty):
-    return hash_str.startswith('0' * difficulty)
-
-def calculate_merkle_root(transactions):
-    if not transactions:
-        return ''
-    hashes = [hash_transaction(tx) for tx in transactions]
-    while len(hashes) > 1:
-        if len(hashes) % 2 == 1:
-            hashes.append(hashes[-1])
-        new_hashes = []
-        for i in range(0, len(hashes), 2):
-            combined = hashes[i] + hashes[i + 1]
-            new_hashes.append(hashlib.sha256(combined.encode()).hexdigest())
-        hashes = new_hashes
-    return hashes[0]
-
-def validate_address(address):
-    if not isinstance(address, str):
-        return False
-    return len(address) == 42 and address.startswith('0x')
-
-def validate_transaction(transaction):
-    required_keys = ['from', 'to', 'amount', 'nonce']
-    if not all(key in transaction for key in required_keys):
-        return False
-    if not isinstance(transaction['amount'], (int, float)) or transaction['amount'] <= 0:
-        return False
-    return True
+@retry(max_attempts=3, delay=2.0)
+def fetch_blockchain_data(endpoint: str) -> dict:
+    import requests
+    response = requests.get(endpoint, timeout=10)
+    response.raise_for_status()
+    return response.json()
