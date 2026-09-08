@@ -6,28 +6,27 @@ DEFAULT_CONFIG = {
     "rpc_url": "https://mainnet.infura.io/v3/",
     "timeout": 30,
     "retries": 3,
-    "debug": False
+    "chain_id": 1
 }
 
-def load_config(filepath: str = "config.json") -> Dict[str, Any]:
+def load_config(path: str = "config.json") -> Dict[str, Any]:
     config = DEFAULT_CONFIG.copy()
-    
-    if os.path.exists(filepath):
+    if os.path.exists(path):
         try:
-            with open(filepath, "r") as f:
-                user_data = json.load(f)
-                config.update(user_data)
+            with open(path, "r") as f:
+                user_config = json.load(f)
+                config.update(user_config)
         except (json.JSONDecodeError, IOError):
             pass
-            
     return config
 
-def get_env_overrides(config: Dict[str, Any]) -> Dict[str, Any]:
-    for key in config:
-        env_val = os.getenv(f"BLOCKCHAIN_{key.upper()}")
-        if env_val is not None:
-            try:
-                config[key] = type(config[key])(env_val)
-            except (ValueError, TypeError):
-                pass
-    return config
+class ConfigManager:
+    def __init__(self, path: str = "config.json"):
+        self._data = load_config(path)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
+
+    @property
+    def all(self) -> Dict[str, Any]:
+        return self._data.copy()
