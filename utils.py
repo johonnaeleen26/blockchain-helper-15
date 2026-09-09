@@ -1,38 +1,31 @@
-import time
-import logging
-from functools import wraps
-from typing import Callable, Any, Type, Tuple, Union
+import re
+from decimal import Decimal, localcontext
+from typing import Union
 
-logger = logging.getLogger("blockchain_helper.utils")
+ADDR_RE = re.compile(r"^0x[a-fA-F0-9]{40}$")
 
-def retry(
-    retries: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = Exception,
-) -> Callable:
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            attempt = 0
-            current_delay = delay
-            while attempt < retries:
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    attempt += 1
-                    if attempt >= retries:
-                        logger.error("Function %s failed after %d attempts: %s", func.__name__, retries, e)
-                        raise
-                    logger.warning(
-                        "Retrying %s in %.2fs (attempt %d/%d) due to error: %s",
-                        func.__name__,
-                        current_delay,
-                        attempt,
-                        retries,
-                        e,
-                    )
-                    time.sleep(current_delay)
-                    current_delay *= backoff
-        return wrapper
-    return decorator
+
+def to_base_unit(amount: Union[int, float, str, Decimal], decimals: int) -> int:
+    with localcontext() as ctx:
+        ctx.prec = 36
+        return int(Decimal(str(amount)) * (Decimal(10) ** decimals))
+
+
+def from_base_unit(amount: int, decimals: int) -> Decimal:
+    with localcontext() as ctx:
+        ctx.prec = 36
+        return Decimal(amount) / (Decimal(10) ** decimals)
+
+
+def is_valid_evm_address(address: str) -> bool:
+    return bool(ADDR_RE.match(address))
+
+
+def format_crypto_val(amount: Decimal, max_decimals: int = 6) -> str:
+    val_str = f"{amount:f}"
+    if "." in val_str:
+        parts = val_str.split(".")
+        if len(parts[1]) > max_decimals:
+            return f"{amount:.{max_decimals}f}".rstrip("0").rstrip(".")
+        return val_str.rstrip("0").rstrip(".")
+    return val_str
