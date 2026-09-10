@@ -1,30 +1,21 @@
-import time
-import functools
-from typing import Callable, Any
+from typing import Dict, Any, Optional
+import hashlib
 
-def retry_network_op(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            attempts = 0
-            current_delay = delay
-            while attempts < max_attempts:
-                try:
-                    return func(*args, **kwargs)
-                except (ConnectionError, TimeoutError):
-                    attempts += 1
-                    if attempts == max_attempts:
-                        raise
-                    time.sleep(current_delay)
-                    current_delay *= backoff
-            return None
-        return wrapper
-    return decorator
+def calculate_hash(data: Dict[str, Any]) -> str:
+    """Generates a SHA-256 hash for a dictionary of blockchain data."""
+    encoded_data = str(sorted(data.items())).encode()
+    return hashlib.sha256(encoded_data).hexdigest()
 
-@retry_network_op(max_attempts=3, delay=2.0)
-def fetch_blockchain_data(endpoint: str):
-    # Simulate network operation
-    import random
-    if random.random() < 0.7:
-        raise ConnectionError("node unreachable")
-    return {"status": "success", "data": "0xabc123"}
+def format_wei(value: int, decimals: int = 18) -> float:
+    """Converts wei units to human-readable token amounts."""
+    return float(value) / (10 ** decimals)
+
+def validate_address(address: str) -> bool:
+    """Checks if a string is a valid hexadecimal blockchain address."""
+    if not address.startswith("0x") or len(address) != 42:
+        return False
+    return all(c in "0123456789abcdefABCDEF" for c in address[2:])
+
+def get_gas_estimate(gas_limit: int, gas_price: int) -> int:
+    """Calculates total transaction fee in wei."""
+    return gas_limit * gas_price
