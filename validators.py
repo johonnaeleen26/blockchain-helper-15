@@ -1,37 +1,35 @@
-import re
+from typing import Any, Optional
 
-class InputValidator:
-    ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
-    TX_HASH_PATTERN = re.compile(r'^0x[a-fA-F0-9]{64}$')
+class ValidationError(Exception):
+    pass
 
-    @staticmethod
-    def is_valid_address(address: str) -> bool:
-        return bool(InputValidator.ADDRESS_PATTERN.match(address))
+def validate_address(address: Any) -> str:
+    if not isinstance(address, str):
+        raise ValidationError('address must be a string')
+    if not (len(address) == 42 and address.startswith('0x')):
+        raise ValidationError('invalid ethereum address format')
+    return address
 
-    @staticmethod
-    def is_valid_tx_hash(tx_hash: str) -> bool:
-        return bool(InputValidator.TX_HASH_PATTERN.match(tx_hash))
+def validate_amount(amount: Any) -> float:
+    try:
+        val = float(amount)
+        if val <= 0:
+            raise ValueError
+        return val
+    except (TypeError, ValueError, OverflowError):
+        raise ValidationError('amount must be a positive float')
 
-    @staticmethod
-    def validate_amount(amount: str) -> bool:
-        try:
-            value = float(amount)
-            return value > 0
-        except (ValueError, TypeError):
-            return False
+def validate_chain_id(chain_id: Any) -> int:
+    if not isinstance(chain_id, int) or chain_id < 0:
+        raise ValidationError('chain_id must be a non-negative integer')
+    return chain_id
 
-def validate_payload(data: dict) -> bool:
-    required_fields = ['address', 'amount', 'tx_hash']
-    if not all(k in data for k in required_fields):
+def validate_transaction(data: dict) -> bool:
+    try:
+        validate_address(data.get('from'))
+        validate_address(data.get('to'))
+        validate_amount(data.get('value'))
+        validate_chain_id(data.get('chain_id'))
+        return True
+    except (ValidationError, AttributeError):
         return False
-    
-    if not InputValidator.is_valid_address(data['address']):
-        return False
-    
-    if not InputValidator.validate_amount(data['amount']):
-        return False
-        
-    if not InputValidator.is_valid_tx_hash(data['tx_hash']):
-        return False
-        
-    return True
