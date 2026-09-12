@@ -1,29 +1,33 @@
 import logging
-from logging.handlers import RotatingFileHandler
-import os
+import sys
+from typing import Optional
 
-def setup_logger(name: str = "blockchain_helper") -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+class BlockchainLogger:
+    def __init__(self, name: str = "blockchain-helper-15"):
+        self.logger = logging.getLogger(name)
+        self._configure()
 
-    if not os.path.exists("logs"):
-        os.makedirs("logs")
+    def _configure(self) -> None:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+        self.logger.setLevel(logging.INFO)
 
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
+    def log_error(self, message: str, exc: Optional[Exception] = None) -> None:
+        if not isinstance(message, str) or not message:
+            return
+        
+        error_details = f": {str(exc)}" if exc else ""
+        try:
+            self.logger.error(f"{message}{error_details}")
+        except (ValueError, TypeError):
+            sys.stderr.write(f"critical error in logger: {message}\n")
 
-    file_handler = RotatingFileHandler(
-        "logs/app.log", 
-        maxBytes=10485760, 
-        backupCount=5
-    )
-    file_handler.setFormatter(formatter)
+    def log_event(self, event: str) -> None:
+        try:
+            self.logger.info(str(event))
+        except Exception:
+            pass
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-
-    return logger
+logger = BlockchainLogger()
