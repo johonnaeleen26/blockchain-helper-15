@@ -1,31 +1,26 @@
-class BlockchainError(Exception):
-    """Base exception for blockchain-helper-15."""
+class BlockchainHelperError(Exception):
+    """Base exception for blockchain-helper-15"""
 
 
-class ConnectionTimeoutError(BlockchainError):
-    """Raised when the blockchain node fails to respond."""
+class ConnectionError(BlockchainHelperError):
+    """Raised when RPC connection fails"""
 
 
-class InvalidTransactionError(BlockchainError):
-    """Raised when transaction data fails validation."""
+class ValidationError(BlockchainHelperError):
+    """Raised when transaction data is malformed"""
 
 
-class InsufficientFundsError(BlockchainError):
-    """Raised when the wallet balance is too low."""
+class RateLimitError(BlockchainHelperError):
+    """Raised when API rate limits are exceeded"""
 
 
-class RateLimitExceededError(BlockchainError):
-    """Raised when API request limits are breached."""
+class InsufficientFundsError(BlockchainHelperError):
+    """Raised when account balance is too low"""
 
 
-def raise_if_invalid(condition: bool, message: str) -> None:
-    """Validate conditions and raise Transaction errors if false."""
-    if not condition:
-        raise InvalidTransactionError(message)
+class TransactionTimeoutError(BlockchainHelperError):
+    """Raised when transaction mining takes too long"""
 
 
-def handle_exception(exc: Exception) -> str:
-    """Format exception messages for logging purposes."""
-    if isinstance(exc, BlockchainError):
-        return f"[Blockchain Error]: {str(exc)}"
-    return f"[Unexpected Error]: {str(exc)}"
+class AuthenticationError(BlockchainHelperError):
+    """Raised when API keys or signatures are invalid"""
