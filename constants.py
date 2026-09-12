@@ -1,35 +1,32 @@
+"""Cryptocurrency and blockchain network constant definitions."""
+
 from typing import Dict, Final
 
-# Chain IDs
+# Chain IDs for major EVM networks
 ETH_MAINNET: Final[int] = 1
-SEPOLIA: Final[int] = 11155111
 BSC_MAINNET: Final[int] = 56
 POLYGON_MAINNET: Final[int] = 137
-ARBITRUM_ONE: Final[int] = 42161
-OPTIMISM: Final[int] = 10
+ARBITRUM_MAINNET: Final[int] = 42161
+OPTIMISM_MAINNET: Final[int] = 10
 
-# RPC Methods
-RPC_GET_BALANCE: Final[str] = "eth_getBalance"
-RPC_SEND_RAW_TRANSACTION: Final[str] = "eth_sendRawTransaction"
-RPC_GET_TRANSACTION_RECEIPT: Final[str] = "eth_getTransactionReceipt"
-RPC_BLOCK_NUMBER: Final[str] = "eth_blockNumber"
-RPC_ESTIMATE_GAS: Final[str] = "eth_estimateGas"
-
-# Standard Gas Limits
-GAS_LIMIT_ETH: Final[int] = 21000
-GAS_LIMIT_ERC20: Final[int] = 65000
-
-# Explorer URLs
-EXPLORER_URLS: Final[Dict[int, str]] = {
-    ETH_MAINNET: "https://etherscan.io",
-    SEPOLIA: "https://sepolia.etherscan.io",
-    BSC_MAINNET: "https://bscscan.com",
-    POLYGON_MAINNET: "https://polygonscan.com",
-    ARBITRUM_ONE: "https://arbiscan.io",
-    OPTIMISM: "https://optimistic.etherscan.io",
+# Average block production times in seconds
+BLOCK_TIMES: Final[Dict[int, float]] = {
+    ETH_MAINNET: 12.0,
+    BSC_MAINNET: 3.0,
+    POLYGON_MAINNET: 2.0,
+    ARBITRUM_MAINNET: 0.25,
+    OPTIMISM_MAINNET: 2.0,
 }
 
-# Timeouts and Retries
-DEFAULT_TIMEOUT: Final[float] = 10.0
-MAX_RETRIES: Final[int] = 3
-RETRY_BACKOFF_FACTOR: Final[float] = 0.5
+# Standard gas limits for EVM transactions
+STANDARD_GAS_LIMIT: Final[int] = 21000
+ERC20_TRANSFER_GAS_LIMIT: Final[int] = 65000
+
+# Default token decimal precisions
+TOKEN_DECIMALS: Final[Dict[str, int]] = {
+    "ETH": 18,
+    "BTC": 8,
+    "USDT": 6,
+    "USDC": 6,
+    "DAI": 18,
+}
