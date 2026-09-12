@@ -1,30 +1,47 @@
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Dict, List, Optional
+import re
 
+class TransactionProcessor:
+    ADDR_REGEX = re.compile("^0x[a-fA-F0-9]{40}$")
+    HASH_REGEX = re.compile("^0x[a-fA-F0-9]{64}$")
 
-class CryptoProcessor:
-    def __init__(self, precision: int = 8):
-        self.precision = precision
+    def __init__(self):
+        self.processed_count = 0
+        self.failed_count = 0
 
-    def format_amount(self, value: float) -> Decimal:
-        return Decimal(str(value)).quantize(
-            Decimal(10) ** -self.precision, 
-            rounding=ROUND_HALF_UP
-        )
+    def validate_transaction(self, tx: dict) -> bool:
+        if not isinstance(tx, dict):
+            return False
 
-    def calculate_trade_volume(self, prices: List[float], quantities: List[float]) -> Decimal:
-        if len(prices) != len(quantities):
-            raise ValueError("mismatched data list lengths")
-        
-        total = sum(Decimal(str(p)) * Decimal(str(q)) for p, q in zip(prices, quantities))
-        return total.quantize(Decimal('1.00000000'))
+        required_keys = {"sender", "recipient", "amount", "tx_hash"}
+        if not required_keys.issubset(tx.keys()):
+            return False
 
-    def filter_dust(self, data: Dict[str, float], threshold: float = 0.0001) -> Dict[str, float]:
-        return {k: v for k, v in data.items() if v >= threshold}
+        if not (self.ADDR_REGEX.match(tx["sender"]) and self.ADDR_REGEX.match(tx["recipient"])):
+            return False
 
-    def aggregate_balances(self, assets: List[Dict[str, float]]) -> Dict[str, Decimal]:
-        totals: Dict[str, Decimal] = {}
-        for asset in assets:
-            for coin, amount in asset.items():
-                totals[coin] = totals.get(coin, Decimal('0')) + Decimal(str(amount))
-        return {k: v.quantize(Decimal('1.00000000')) for k, v in totals.items()}
+        if not self.HASH_REGEX.match(tx["tx_hash"]):
+            return False
+
+        try:
+            amount = float(tx["amount"])
+            if amount <= 0:
+                return False
+        except (ValueError, TypeError):
+            return False
+
+        return True
+
+    def process_batch(self, transactions: list) -> dict:
+        successful_txs = []
+        for tx in transactions:
+            if self.validate_transaction(tx):
+                successful_txs.append(tx)
+                self.processed_count += 1
+            else:
+                self.failed_count += 1
+
+        return {
+            "processed": self.processed_count,
+            "failed": self.failed_count,
+            "valid_transactions": successful_txs,
+        }
