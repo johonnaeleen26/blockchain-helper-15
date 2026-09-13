@@ -1,31 +1,23 @@
-import re
-from decimal import Decimal, localcontext
-from typing import Union
+import time
+import functools
+import logging
+from typing import Callable, Any
 
-ADDR_RE = re.compile(r"^0x[a-fA-F0-9]{40}$")
+logger = logging.getLogger(__name__)
 
-
-def to_base_unit(amount: Union[int, float, str, Decimal], decimals: int) -> int:
-    with localcontext() as ctx:
-        ctx.prec = 36
-        return int(Decimal(str(amount)) * (Decimal(10) ** decimals))
-
-
-def from_base_unit(amount: int, decimals: int) -> Decimal:
-    with localcontext() as ctx:
-        ctx.prec = 36
-        return Decimal(amount) / (Decimal(10) ** decimals)
-
-
-def is_valid_evm_address(address: str) -> bool:
-    return bool(ADDR_RE.match(address))
-
-
-def format_crypto_val(amount: Decimal, max_decimals: int = 6) -> str:
-    val_str = f"{amount:f}"
-    if "." in val_str:
-        parts = val_str.split(".")
-        if len(parts[1]) > max_decimals:
-            return f"{amount:.{max_decimals}f}".rstrip("0").rstrip(".")
-        return val_str.rstrip("0").rstrip(".")
-    return val_str
+def retry(exceptions: tuple, tries: int = 3, delay: float = 1.0, backoff: float = 2.0):
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            mtries, mdelay = tries, delay
+            while mtries > 1:
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    logger.warning(f"{e}, Retrying in {mdelay} seconds...")
+                    time.sleep(mdelay)
+                    mtries -= 1
+                    mdelay *= backoff
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
