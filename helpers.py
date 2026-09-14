@@ -1,38 +1,31 @@
-import hashlib
-from typing import List
+import re
 
+ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
 
-def double_sha256(data: bytes) -> bytes:
-    return hashlib.sha256(hashlib.sha256(data).digest()).digest()
+class ValidationError(Exception):
+    pass
 
+def validate_tx_data(data: dict) -> bool:
+    if not isinstance(data.get('amount'), (int, float)) or data['amount'] <= 0:
+        raise ValidationError('Invalid transaction amount')
+    
+    address = data.get('address')
+    if not isinstance(address, str) or not ADDRESS_PATTERN.match(address):
+        raise ValidationError('Invalid wallet address format')
+    
+    return True
 
-def calculate_merkle_root(tx_hashes: List[str]) -> str:
-    if not tx_hashes:
-        raise ValueError("transaction list cannot be empty")
+def process_transactions(transactions: list):
+    for tx in transactions:
+        try:
+            if validate_tx_data(tx):
+                print(f'Processing {tx["amount"]} to {tx["address"]}')
+        except ValidationError as e:
+            print(f'Skipping invalid transaction: {e}')
 
-    layer = [bytes.fromhex(tx.replace("0x", "")) for tx in tx_hashes]
-
-    while len(layer) > 1:
-        next_layer = []
-        for i in range(0, len(layer), 2):
-            left = layer[i]
-            right = layer[i + 1] if i + 1 < len(layer) else left
-            parent_hash = double_sha256(left + right)
-            next_layer.append(parent_hash)
-        layer = next_layer
-
-    return layer[0].hex()
-
-
-def validate_merkle_proof(
-    tx_hash: str, proof: List[str], index: int, root: str
-) -> bool:
-    current_hash = bytes.fromhex(tx_hash.replace("0x", ""))
-    for sibling_hex in proof:
-        sibling = bytes.fromhex(sibling_hex.replace("0x", ""))
-        if index % 2 == 0:
-            current_hash = double_sha256(current_hash + sibling)
-        else:
-            current_hash = double_sha256(sibling + current_hash)
-        index //= 2
-    return current_hash.hex() == root.replace("0x", "")
+if __name__ == '__main__':
+    sample_data = [
+        {'amount': 1.5, 'address': '0x71C7656EC7ab88b098defB751B7401B5f6d8976F'},
+        {'amount': -1, 'address': 'invalid_address'}
+    ]
+    process_transactions(sample_data)
