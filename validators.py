@@ -1,35 +1,25 @@
-from typing import Any, Optional
+import re
 
-class ValidationError(Exception):
-    pass
-
-def validate_address(address: Any) -> str:
+def validate_address(address: str) -> bool:
     if not isinstance(address, str):
-        raise ValidationError('address must be a string')
-    if not (len(address) == 42 and address.startswith('0x')):
-        raise ValidationError('invalid ethereum address format')
-    return address
-
-def validate_amount(amount: Any) -> float:
-    try:
-        val = float(amount)
-        if val <= 0:
-            raise ValueError
-        return val
-    except (TypeError, ValueError, OverflowError):
-        raise ValidationError('amount must be a positive float')
-
-def validate_chain_id(chain_id: Any) -> int:
-    if not isinstance(chain_id, int) or chain_id < 0:
-        raise ValidationError('chain_id must be a non-negative integer')
-    return chain_id
-
-def validate_transaction(data: dict) -> bool:
-    try:
-        validate_address(data.get('from'))
-        validate_address(data.get('to'))
-        validate_amount(data.get('value'))
-        validate_chain_id(data.get('chain_id'))
-        return True
-    except (ValidationError, AttributeError):
         return False
+    return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
+
+def validate_amount(amount: float) -> bool:
+    try:
+        return isinstance(amount, (int, float)) and amount > 0
+    except (ValueError, TypeError):
+        return False
+
+def validate_payload(data: dict) -> bool:
+    required = {'address', 'amount', 'symbol'}
+    if not isinstance(data, dict) or not required.issubset(data.keys()):
+        return False
+    return validate_address(data['address']) and validate_amount(data['amount'])
+
+def process_stream(items: list):
+    valid_items = []
+    for item in items:
+        if validate_payload(item):
+            valid_items.append(item)
+    return valid_items
