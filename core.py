@@ -1,35 +1,29 @@
-import logging
-from typing import Any, Dict
+import hashlib
+import hmac
+from typing import Dict, Any
 
-def validate_transaction(tx: Dict[str, Any]) -> bool:
-    required = {'sender', 'receiver', 'amount'}
-    return all(key in tx for key in required) and isinstance(tx['amount'], (int, float))
+class CryptoHelper:
+    @staticmethod
+    def generate_sha256(data: str) -> str:
+        return hashlib.sha256(data.encode('utf-8')).hexdigest()
 
-def process_blockchain_data(data: list) -> None:
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger('blockchain-helper-15')
+    @staticmethod
+    def sign_payload(secret: str, payload: str) -> str:
+        return hmac.new(
+            secret.encode('utf-8'),
+            payload.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
 
-    for entry in data:
-        if not isinstance(entry, dict):
-            logger.error(f'Invalid data format: {type(entry)}')
-            continue
+    @staticmethod
+    def format_wei(amount: int, decimals: int = 18) -> float:
+        return amount / (10 ** decimals)
 
-        if not validate_transaction(entry):
-            logger.warning(f'Schema validation failed for: {entry}')
-            continue
+    @staticmethod
+    def validate_address(address: str) -> bool:
+        if not address.startswith('0x') or len(address) != 42:
+            return False
+        return all(c in '0123456789abcdefABCDEF' for c in address[2:])
 
-        try:
-            execute_transfer(entry)
-        except Exception as e:
-            logger.error(f'Transaction execution failure: {e}')
-
-def execute_transfer(tx: Dict[str, Any]) -> None:
-    print(f'Processing transfer of {tx["amount"]} to {tx["receiver"]}')
-
-if __name__ == '__main__':
-    sample_data = [
-        {'sender': 'A', 'receiver': 'B', 'amount': 10.5},
-        {'invalid': 'data'},
-        {'sender': 'C', 'receiver': 'D', 'amount': 'high'}
-    ]
-    process_blockchain_data(sample_data)
+def get_nonce(timestamp: int) -> str:
+    return hashlib.md5(str(timestamp).encode()).hexdigest()
