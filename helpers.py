@@ -1,31 +1,34 @@
-import re
+import json
+from typing import Any, Dict, Optional
 
-ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
-
-class ValidationError(Exception):
+class BlockchainError(Exception):
     pass
 
-def validate_tx_data(data: dict) -> bool:
-    if not isinstance(data.get('amount'), (int, float)) or data['amount'] <= 0:
-        raise ValidationError('Invalid transaction amount')
-    
-    address = data.get('address')
-    if not isinstance(address, str) or not ADDRESS_PATTERN.match(address):
-        raise ValidationError('Invalid wallet address format')
-    
-    return True
+def parse_tx_data(data: str) -> Dict[str, Any]:
+    if not data or not isinstance(data, str):
+        raise ValueError('Invalid transaction data format')
 
-def process_transactions(transactions: list):
-    for tx in transactions:
-        try:
-            if validate_tx_data(tx):
-                print(f'Processing {tx["amount"]} to {tx["address"]}')
-        except ValidationError as e:
-            print(f'Skipping invalid transaction: {e}')
+    try:
+        decoded = json.loads(data)
+    except json.JSONDecodeError as e:
+        raise BlockchainError(f'Malformed transaction JSON: {e}') from e
 
-if __name__ == '__main__':
-    sample_data = [
-        {'amount': 1.5, 'address': '0x71C7656EC7ab88b098defB751B7401B5f6d8976F'},
-        {'amount': -1, 'address': 'invalid_address'}
-    ]
-    process_transactions(sample_data)
+    if 'txid' not in decoded or 'amount' not in decoded:
+        raise KeyError('Missing required transaction fields')
+
+    return decoded
+
+def validate_address(address: str) -> bool:
+    if not isinstance(address, str):
+        return False
+    return len(address) == 42 and address.startswith('0x')
+
+def get_safe_tx_amount(data: str) -> float:
+    try:
+        tx = parse_tx_data(data)
+        amount = float(tx.get('amount', 0))
+        if amount < 0:
+            raise ValueError('Negative transaction amount')
+        return amount
+    except (ValueError, KeyError, BlockchainError):
+        return 0.0
