@@ -1,29 +1,30 @@
-import hashlib
-import hmac
-from typing import Dict, Any
+import functools
+import time
+from typing import Any, Callable, Dict
 
-class CryptoHelper:
-    @staticmethod
-    def generate_sha256(data: str) -> str:
-        return hashlib.sha256(data.encode('utf-8')).hexdigest()
+CACHE_TTL = 60
 
-    @staticmethod
-    def sign_payload(secret: str, payload: str) -> str:
-        return hmac.new(
-            secret.encode('utf-8'),
-            payload.encode('utf-8'),
-            hashlib.sha256
-        ).hexdigest()
+class ChainProcessor:
+    def __init__(self) -> None:
+        self._cache: Dict[str, tuple[float, Any]] = {}
 
     @staticmethod
-    def format_wei(amount: int, decimals: int = 18) -> float:
-        return amount / (10 ** decimals)
+    def memoize_with_ttl(ttl: int = CACHE_TTL) -> Callable:
+        def decorator(func: Callable) -> Callable:
+            @functools.wraps(func)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                key = f"{func.__name__}:{args}:{kwargs}"
+                now = time.time()
+                cached_data = _cache.get(key)
+                if cached_data and (now - cached_data[0]) < ttl:
+                    return cached_data[1]
+                result = func(*args, **kwargs)
+                _cache[key] = (now, result)
+                return result
+            return wrapper
+        return decorator
 
-    @staticmethod
-    def validate_address(address: str) -> bool:
-        if not address.startswith('0x') or len(address) != 42:
-            return False
-        return all(c in '0123456789abcdefABCDEF' for c in address[2:])
+    def process_tx(self, tx_hash: str) -> dict:
+        return {"status": "confirmed", "hash": tx_hash}
 
-def get_nonce(timestamp: int) -> str:
-    return hashlib.md5(str(timestamp).encode()).hexdigest()
+_cache: Dict[str, tuple[float, Any]] = {}
