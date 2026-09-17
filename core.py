@@ -1,30 +1,35 @@
 import functools
-import time
-from typing import Any, Callable, Dict
+from typing import Callable, Any, Dict
 
-CACHE_TTL = 60
+CACHE_LIMIT = 1024
 
-class ChainProcessor:
-    def __init__(self) -> None:
-        self._cache: Dict[str, tuple[float, Any]] = {}
+def memoize_blockchain_data(func: Callable) -> Callable:
+    """Thread-safe lru cache for network-heavy calls."""
+    @functools.lru_cache(maxsize=CACHE_LIMIT)
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> Any:
+        return func(*args, **kwargs)
+    return wrapper
+
+class BatchProcessor:
+    def __init__(self, items: list):
+        self.items = items
+
+    def process_generator(self):
+        for item in self.items:
+            yield self._transform(item)
 
     @staticmethod
-    def memoize_with_ttl(ttl: int = CACHE_TTL) -> Callable:
-        def decorator(func: Callable) -> Callable:
-            @functools.wraps(func)
-            def wrapper(*args: Any, **kwargs: Any) -> Any:
-                key = f"{func.__name__}:{args}:{kwargs}"
-                now = time.time()
-                cached_data = _cache.get(key)
-                if cached_data and (now - cached_data[0]) < ttl:
-                    return cached_data[1]
-                result = func(*args, **kwargs)
-                _cache[key] = (now, result)
-                return result
-            return wrapper
-        return decorator
+    def _transform(item: Dict) -> Dict:
+        return {k: v for k, v in item.items() if v is not None}
 
-    def process_tx(self, tx_hash: str) -> dict:
-        return {"status": "confirmed", "hash": tx_hash}
+def compute_hash_sequence(data: bytes, iterations: int = 1000) -> bytes:
+    import hashlib
+    result = data
+    for _ in range(iterations):
+        result = hashlib.sha256(result).digest()
+    return result
 
-_cache: Dict[str, tuple[float, Any]] = {}
+def optimized_filter(data_list: list, target_key: str) -> list:
+    """List comprehension for high performance filtering."""
+    return [item[target_key] for item in data_list if target_key in item]
