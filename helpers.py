@@ -1,34 +1,33 @@
-import json
-from typing import Any, Dict, Optional
+import hashlib
+import re
 
-class BlockchainError(Exception):
-    pass
+SATOSHI_PER_BTC = 100_000_000
+TXID_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
 
-def parse_tx_data(data: str) -> Dict[str, Any]:
-    if not data or not isinstance(data, str):
-        raise ValueError('Invalid transaction data format')
 
-    try:
-        decoded = json.loads(data)
-    except json.JSONDecodeError as e:
-        raise BlockchainError(f'Malformed transaction JSON: {e}') from e
+def satoshi_to_btc(satoshi: int) -> float:
+    if satoshi < 0:
+        raise ValueError("Satoshi amount cannot be negative")
+    return satoshi / SATOSHI_PER_BTC
 
-    if 'txid' not in decoded or 'amount' not in decoded:
-        raise KeyError('Missing required transaction fields')
 
-    return decoded
+def btc_to_satoshi(btc: float) -> int:
+    if btc < 0:
+        raise ValueError("BTC amount cannot be negative")
+    return round(btc * SATOSHI_PER_BTC)
 
-def validate_address(address: str) -> bool:
-    if not isinstance(address, str):
+
+def is_valid_txid(txid: str) -> bool:
+    if not isinstance(txid, str):
         return False
-    return len(address) == 42 and address.startswith('0x')
+    return bool(TXID_PATTERN.match(txid))
 
-def get_safe_tx_amount(data: str) -> float:
-    try:
-        tx = parse_tx_data(data)
-        amount = float(tx.get('amount', 0))
-        if amount < 0:
-            raise ValueError('Negative transaction amount')
-        return amount
-    except (ValueError, KeyError, BlockchainError):
-        return 0.0
+
+def truncate_address(address: str, prefix_len: int = 6, suffix_len: int = 4) -> str:
+    if len(address) <= prefix_len + suffix_len:
+        return address
+    return f"{address[:prefix_len]}...{address[-suffix_len:]}"
+
+
+def double_sha256(data: bytes) -> bytes:
+    return hashlib.sha256(hashlib.sha256(data).digest()).digest()
