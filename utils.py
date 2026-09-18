@@ -5,19 +5,18 @@ from typing import Callable, Any
 
 logger = logging.getLogger(__name__)
 
-def retry(exceptions: tuple, tries: int = 3, delay: float = 1.0, backoff: float = 2.0):
+def retry_network_op(retries: int = 3, delay: float = 1.0) -> Callable:
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            mtries, mdelay = tries, delay
-            while mtries > 1:
+            last_exception = None
+            for attempt in range(retries):
                 try:
                     return func(*args, **kwargs)
-                except exceptions as e:
-                    logger.warning(f"{e}, Retrying in {mdelay} seconds...")
-                    time.sleep(mdelay)
-                    mtries -= 1
-                    mdelay *= backoff
-            return func(*args, **kwargs)
+                except Exception as e:
+                    last_exception = e
+                    logger.warning(f"attempt {attempt + 1} failed: {e}")
+                    time.sleep(delay * (2 ** attempt))
+            raise last_exception
         return wrapper
     return decorator
