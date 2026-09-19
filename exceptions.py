@@ -1,43 +1,24 @@
-class BlockchainHelperError(Exception):
-    """Base exception for blockchain-helper library."""
+class BlockchainError(Exception):
+    """Base exception for all blockchain-related issues."""
 
 
-class NodeConnectionError(BlockchainHelperError):
-    """Raised when connection to the blockchain node fails."""
-
-    def __init__(self, endpoint: str, message: str = "Failed to connect to node"):
-        self.endpoint = endpoint
-        self.message = f"{message}: {endpoint}"
-        super().__init__(self.message)
+class ConnectionTimeoutError(BlockchainError):
+    """Raised when the node fails to respond."""
 
 
-class InvalidAddressError(BlockchainHelperError):
-    """Raised when a blockchain address format is invalid."""
-
-    def __init__(self, address: str, network: str):
-        self.address = address
-        self.network = network
-        self.message = f"Invalid address '{address}' for network '{network}'"
-        super().__init__(self.message)
+class InsufficientFundsError(BlockchainError):
+    """Raised when wallet balance is too low."""
 
 
-class TransactionError(BlockchainHelperError):
-    """Raised when a transaction fails or is rejected."""
-
-    def __init__(self, tx_hash: str, reason: str):
-        self.tx_hash = tx_hash
-        self.reason = reason
-        self.message = f"Transaction {tx_hash} failed: {reason}"
-        super().__init__(self.message)
+class TransactionValidationError(BlockchainError):
+    """Raised when transaction data is malformed."""
 
 
-class InsufficientFundsError(BlockchainHelperError):
-    """Raised when account balance is too low for the transaction."""
+class NetworkSyncError(BlockchainError):
+    """Raised when block headers are out of sync."""
 
-    def __init__(self, required: float, available: float):
-        self.required = required
-        self.available = available
-        self.message = (
-            f"Insufficient funds: required {required}, available {available}"
-        )
-        super().__init__(self.message)
+
+def raise_if_invalid(condition: bool, message: str, exception_type: type = BlockchainError) -> None:
+    """Utility to trigger domain-specific exceptions."""
+    if not condition:
+        raise exception_type(message)
