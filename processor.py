@@ -1,47 +1,64 @@
-import re
+import functools
+import json
+import time
+import urllib.error
+import urllib.request
+from typing import Any, Callable, Dict
 
-class TransactionProcessor:
-    ADDR_REGEX = re.compile("^0x[a-fA-F0-9]{40}$")
-    HASH_REGEX = re.compile("^0x[a-fA-F0-9]{64}$")
 
-    def __init__(self):
-        self.processed_count = 0
-        self.failed_count = 0
+def retry_network_op(
+    max_retries: int = 3,
+    backoff_factor: float = 1.5,
+    exceptions: tuple = (urllib.error.URLError, TimeoutError),
+) -> Callable:
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            delay = 1.0
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as err:
+                    if attempt == max_retries:
+                        raise err
+                    time.sleep(delay)
+                    delay *= backoff_factor
+        return wrapper
+    return decorator
 
-    def validate_transaction(self, tx: dict) -> bool:
-        if not isinstance(tx, dict):
-            return False
 
-        required_keys = {"sender", "recipient", "amount", "tx_hash"}
-        if not required_keys.issubset(tx.keys()):
-            return False
+class BlockchainProcessor:
+    def __init__(self, rpc_url: str):
+        self.rpc_url = rpc_url
 
-        if not (self.ADDR_REGEX.match(tx["sender"]) and self.ADDR_REGEX.match(tx["recipient"])):
-            return False
+    @retry_network_op(max_retries=4, backoff_factor=2.0)
+    def fetch_latest_block(self) -> Dict[str, Any]:
+        payload = json.dumps({
+            "jsonrpc": "2.0",
+            "method": "eth_blockNumber",
+            "params": [],
+            "id": 1
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            self.rpc_url,
+            data=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as response:
+            return json.loads(response.read().decode("utf-8"))
 
-        if not self.HASH_REGEX.match(tx["tx_hash"]):
-            return False
-
-        try:
-            amount = float(tx["amount"])
-            if amount <= 0:
-                return False
-        except (ValueError, TypeError):
-            return False
-
-        return True
-
-    def process_batch(self, transactions: list) -> dict:
-        successful_txs = []
-        for tx in transactions:
-            if self.validate_transaction(tx):
-                successful_txs.append(tx)
-                self.processed_count += 1
-            else:
-                self.failed_count += 1
-
-        return {
-            "processed": self.processed_count,
-            "failed": self.failed_count,
-            "valid_transactions": successful_txs,
-        }
+    @retry_network_op(max_retries=3)
+    def fetch_balance(self, address: str) -> Dict[str, Any]:
+        payload = json.dumps({
+            "jsonrpc": "2.0",
+            "method": "eth_getBalance",
+            "params": [address, "latest"],
+            "id": 1
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            self.rpc_url,
+            data=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as response:
+            return json.loads(response.read().decode("utf-8"))
