@@ -1,27 +1,50 @@
+import os
 import logging
-import sys
-from typing import Optional
+from logging.handlers import RotatingFileHandler
 
-class BlockchainLogger:
-    def __init__(self, name: str, level: int = logging.INFO):
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(level)
-        self._setup_handler()
 
-    def _setup_handler(self) -> None:
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        handler.setFormatter(formatter)
-        if not self.logger.handlers:
-            self.logger.addHandler(handler)
+def setup_logger(
+    name: str = "blockchain_helper",
+    log_file: str = "logs/blockchain.log",
+    max_bytes: int = 5 * 1024 * 1024,
+    backup_count: int = 5,
+    level: int = logging.INFO,
+) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
 
-    def info(self, msg: str) -> None:
-        self.logger.info(msg)
+    if logger.handlers:
+        return logger
 
-    def error(self, msg: str, exc: Optional[Exception] = None) -> None:
-        self.logger.error(msg, exc_info=exc)
+    log_dir = os.path.dirname(log_file)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
 
-def get_logger(name: str) -> BlockchainLogger:
-    return BlockchainLogger(name)
+    formatter = logging.Formatter(
+        fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    file_handler = RotatingFileHandler(
+        filename=log_file,
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        encoding="utf-8",
+    )
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+def log_transaction_event(
+    logger: logging.Logger, tx_hash: str, status: str, details: str = ""
+) -> None:
+    msg = f"TxHash: {tx_hash} | Status: {status}"
+    if details:
+        msg += f" | Details: {details}"
+    logger.info(msg)
