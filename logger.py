@@ -1,48 +1,27 @@
 import logging
-import os
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
+import sys
+from typing import Optional
 
+class BlockchainLogger:
+    def __init__(self, name: str, level: int = logging.INFO):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(level)
+        self._setup_handler()
 
-def setup_logger(
-    name: str = "blockchain_helper",
-    log_dir: str = "logs",
-    log_file: str = "crypto_node.log",
-    level: int = logging.INFO,
-    max_bytes: int = 5 * 1024 * 1024,
-    backup_count: int = 5,
-) -> logging.Logger:
-    Path(log_dir).mkdir(parents=True, exist_ok=True)
-    log_path = os.path.join(log_dir, log_file)
+    def _setup_handler(self) -> None:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        handler.setFormatter(formatter)
+        if not self.logger.handlers:
+            self.logger.addHandler(handler)
 
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
+    def info(self, msg: str) -> None:
+        self.logger.info(msg)
 
-    if logger.handlers:
-        return logger
+    def error(self, msg: str, exc: Optional[Exception] = None) -> None:
+        self.logger.error(msg, exc_info=exc)
 
-    formatter = logging.Formatter(
-        "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)d] - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(level)
-
-    file_handler = RotatingFileHandler(
-        log_path,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        encoding="utf-8",
-    )
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(level)
-
-    logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
-
-    return logger
-
-
-logger = setup_logger()
+def get_logger(name: str) -> BlockchainLogger:
+    return BlockchainLogger(name)
