@@ -1,35 +1,30 @@
+import time
 import functools
-from typing import Callable, Any, Dict
+import logging
+from typing import Callable, Any
 
-CACHE_LIMIT = 1024
+logger = logging.getLogger(__name__)
 
-def memoize_blockchain_data(func: Callable) -> Callable:
-    """Thread-safe lru cache for network-heavy calls."""
-    @functools.lru_cache(maxsize=CACHE_LIMIT)
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs) -> Any:
-        return func(*args, **kwargs)
-    return wrapper
+def with_retry(retries: int = 3, delay: float = 1.0, backoff: float = 2.0):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            current_delay = delay
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == retries - 1:
+                        logger.error(f"Final attempt failed: {e}")
+                        raise
+                    logger.warning(f"Retry {attempt + 1}/{retries} after error: {e}")
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+            return None
+        return wrapper
+    return decorator
 
-class BatchProcessor:
-    def __init__(self, items: list):
-        self.items = items
-
-    def process_generator(self):
-        for item in self.items:
-            yield self._transform(item)
-
-    @staticmethod
-    def _transform(item: Dict) -> Dict:
-        return {k: v for k, v in item.items() if v is not None}
-
-def compute_hash_sequence(data: bytes, iterations: int = 1000) -> bytes:
-    import hashlib
-    result = data
-    for _ in range(iterations):
-        result = hashlib.sha256(result).digest()
-    return result
-
-def optimized_filter(data_list: list, target_key: str) -> list:
-    """List comprehension for high performance filtering."""
-    return [item[target_key] for item in data_list if target_key in item]
+@with_retry(retries=3, delay=0.5)
+def fetch_blockchain_data(endpoint: str) -> dict:
+    # Placeholder for actual network request logic
+    return {"status": "success", "endpoint": endpoint}
