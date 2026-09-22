@@ -1,33 +1,29 @@
 import hashlib
-import re
+import hmac
+import time
+from typing import Dict
 
-SATOSHI_PER_BTC = 100_000_000
-TXID_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
+def generate_signature(api_secret: str, message: str) -> str:
+    return hmac.new(
+        api_secret.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
 
+def format_payload(params: Dict) -> str:
+    sorted_keys = sorted(params.keys())
+    return '&'.join([f'{k}={params[k]}' for k in sorted_keys])
 
-def satoshi_to_btc(satoshi: int) -> float:
-    if satoshi < 0:
-        raise ValueError("Satoshi amount cannot be negative")
-    return satoshi / SATOSHI_PER_BTC
+def get_timestamp() -> int:
+    return int(time.time() * 1000)
 
-
-def btc_to_satoshi(btc: float) -> int:
-    if btc < 0:
-        raise ValueError("BTC amount cannot be negative")
-    return round(btc * SATOSHI_PER_BTC)
-
-
-def is_valid_txid(txid: str) -> bool:
-    if not isinstance(txid, str):
+def validate_address(address: str) -> bool:
+    if not isinstance(address, str) or len(address) < 26 or len(address) > 42:
         return False
-    return bool(TXID_PATTERN.match(txid))
+    return address.isalnum()
 
+def wei_to_ether(wei: int) -> float:
+    return wei / 10**18
 
-def truncate_address(address: str, prefix_len: int = 6, suffix_len: int = 4) -> str:
-    if len(address) <= prefix_len + suffix_len:
-        return address
-    return f"{address[:prefix_len]}...{address[-suffix_len:]}"
-
-
-def double_sha256(data: bytes) -> bytes:
-    return hashlib.sha256(hashlib.sha256(data).digest()).digest()
+def ether_to_wei(ether: float) -> int:
+    return int(ether * 10**18)
