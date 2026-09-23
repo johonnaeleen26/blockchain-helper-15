@@ -1,17 +1,23 @@
 # blockchain-helper-15
 
-`blockchain-helper-15` is a lightweight Python toolkit designed to streamline interactions with EVM-compatible blockchains. It simplifies common tasks like contract event monitoring, gas estimation, and secure wallet management for developers building decentralized applications.
+`blockchain-helper-15` is a lightweight Python toolkit designed to streamline interactions with EVM-compatible blockchains. It simplifies common tasks like contract event monitoring, gas estimation, and batch transaction processing.
 
 ## Features
 
-*   **Gas Oracle Integration:** Automatically fetches current network congestion data to calculate optimal gas fees, minimizing transaction failure rates.
-*   **Event Streamer:** A robust listener service that polls blockchain nodes for specific smart contract events and pushes data to your local database.
-*   **Wallet Utility Suite:** Securely generates mnemonic phrases, manages keystores, and handles batch transaction signing without exposing private keys.
-*   **Multi-Chain Support:** Seamlessly switch between Mainnet, Testnets, and Layer-2 solutions like Polygon or Arbitrum via a unified configuration file.
+*   **Automated Gas Oracle:** Fetch real-time gas prices and estimate network fees with configurable priority levels to ensure timely transaction inclusion.
+*   **Event Stream Listener:** Robust, asynchronous listeners that capture and parse blockchain logs, providing seamless integration with off-chain notification systems.
+*   **Batch Processor:** Execute bulk transfers or contract interactions in a single transaction batch to minimize gas overhead and reduce latency.
+*   **Secure Wallet Manager:** Simplifies keystore management and private key handling using industry-standard encryption protocols.
 
 ## Installation
 
-Ensure you have Python 3.9+ installed. Clone the repository and install the dependencies:
+Ensure you have Python 3.9+ installed. Install the package directly via pip:
+
+```bash
+pip install blockchain-helper-15
+```
+
+For local development and dependency management:
 
 ```bash
 git clone https://github.com/Developer/blockchain-helper-15.git
@@ -21,23 +27,28 @@ pip install -r requirements.txt
 
 ## Basic Usage
 
-To initialize a connection and fetch the current network gas price, use the following snippet:
+The following example demonstrates how to initialize the helper and retrieve the current network base fee:
 
 ```python
 from blockchain_helper import Client
 
-# Initialize with your RPC provider URL
-client = Client(rpc_url="https://mainnet.infura.io/v3/YOUR_API_KEY")
+# Initialize the client with an RPC provider
+client = Client(rpc_url="https://eth-mainnet.public.blastapi.io")
 
-# Fetch current gas price in Gwei
-gas_price = client.get_gas_price()
-print(f"Current gas price: {gas_price} Gwei")
+# Fetch current gas fees
+gas_stats = client.get_gas_metrics()
+print(f"Standard Gas Price: {gas_stats['standard']} Gwei")
+
+# Listen for a specific event
+client.watch_contract_event(
+    address="0x123...abc",
+    event_name="Transfer",
+    callback=lambda log: print(f"New transfer detected: {log}")
+)
 ```
-
-For advanced event monitoring, refer to the `examples/` directory for implementation patterns regarding websocket connections and asynchronous processing.
 
 ## License
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Distributed under the MIT License. See `LICENSE` for more information.
