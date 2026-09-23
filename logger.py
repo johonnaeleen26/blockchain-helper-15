@@ -1,29 +1,31 @@
 import logging
-import sys
-from typing import Optional
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-class BlockchainLogger:
-    def __init__(self, name: str = "blockchain-helper-15", level: int = logging.INFO):
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(level)
+LOG_DIR = Path("logs")
+LOG_FILE = LOG_DIR / "blockchain.log"
+
+def setup_logger(name: str = "blockchain-helper-15") -> logging.Logger:
+    LOG_DIR.mkdir(exist_ok=True)
+    
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    
+    handler = RotatingFileHandler(
+        LOG_FILE, 
+        maxBytes=10 * 1024 * 1024, 
+        backupCount=5
+    )
+    handler.setFormatter(formatter)
+    
+    if not logger.handlers:
+        logger.addHandler(handler)
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
         
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        handler.setFormatter(formatter)
-        
-        if not self.logger.handlers:
-            self.logger.addHandler(handler)
-
-    def info(self, msg: str) -> None:
-        self.logger.info(msg)
-
-    def error(self, msg: str, exc_info: Optional[Exception] = None) -> None:
-        self.logger.error(msg, exc_info=exc_info)
-
-    def debug(self, msg: str) -> None:
-        self.logger.debug(msg)
-
-def get_logger(name: str = "blockchain-helper-15") -> logging.Logger:
-    return BlockchainLogger(name).logger
+    return logger
