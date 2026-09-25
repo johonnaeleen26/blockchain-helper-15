@@ -1,31 +1,36 @@
-from typing import List, Dict, Optional
+import functools
+import time
+from typing import Callable, Any
 
 class TransactionProcessor:
-    """Handles validation and formatting of blockchain transaction data."""
+    def __init__(self, cache_size: int = 128):
+        self._cache_size = cache_size
+        self._cache = {}
 
-    def __init__(self, network: str) -> None:
-        self.network: str = network
+    def memoize_validation(self, func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            key = (args, tuple(sorted(kwargs.items())))
+            if key in self._cache:
+                return self._cache[key]
+            
+            result = func(*args, **kwargs)
+            
+            if len(self._cache) >= self._cache_size:
+                self._cache.pop(next(iter(self._cache)))
+            
+            self._cache[key] = result
+            return result
+        return wrapper
 
-    def validate_tx(self, tx_data: Dict[str, str]) -> bool:
-        """Verify transaction structure matches network requirements."""
-        required_fields: List[str] = ["hash", "sender", "receiver", "amount"]
-        return all(field in tx_data for field in required_fields)
+    @staticmethod
+    def batch_process(data: list, chunk_size: int = 1000) -> list:
+        return [data[i:i + chunk_size] for i in range(0, len(data), chunk_size)]
 
-    def format_batch(self, transactions: List[Dict[str, str]]) -> List[Dict[str, str]]:
-        """Sanitize and prepare a list of transactions for node submission."""
-        return [self._normalize(tx) for tx in transactions if self.validate_tx(tx)]
-
-    def _normalize(self, tx: Dict[str, str]) -> Dict[str, str]:
-        """Lowercases addresses for consistent cross-chain processing."""
-        return {
-            "hash": tx["hash"].lower(),
-            "sender": tx["sender"].lower(),
-            "receiver": tx["receiver"].lower(),
-            "amount": tx["amount"]
-        }
-
-    def get_status(self, tx_hash: str) -> Optional[str]:
-        """Retrieve pending or confirmed status for a specific hash."""
-        if not tx_hash:
-            return None
-        return "confirmed"
+def performance_decorator(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        return result
+    return wrapper
