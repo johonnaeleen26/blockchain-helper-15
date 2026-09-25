@@ -1,29 +1,28 @@
 import logging
-import os
-from logging.handlers import RotatingFileHandler
+import sys
 from typing import Optional
 
-LOG_FILE = "blockchain.log"
-MAX_BYTES = 5 * 1024 * 1024
-BACKUP_COUNT = 3
+class BlockchainLogger:
+    def __init__(self, name: str = 'blockchain-helper-15') -> None:
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.INFO)
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
-def setup_logger(name: str, level: int = logging.INFO) -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
+    def log_error(self, error: Exception, context: Optional[str] = None) -> None:
+        error_msg = f"context: {context} | " if context else ""
+        self.logger.error(f"{error_msg}type: {type(error).__name__} | message: {str(error)}")
 
-    if not logger.handlers:
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+    def safe_execute(self, func, *args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except (ValueError, TypeError, ConnectionError) as e:
+            self.log_error(e, context=func.__name__)
+            return None
+        except Exception as e:
+            self.log_error(e, context="critical_failure")
+            raise
 
-        file_handler = RotatingFileHandler(
-            LOG_FILE, maxBytes=MAX_BYTES, backupCount=BACKUP_COUNT
-        )
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-
-    return logger
+logger = BlockchainLogger()
