@@ -1,27 +1,31 @@
 import re
 
-def validate_address(address: str) -> bool:
-    return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
+class BlockchainValidator:
+    ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
+    TX_HASH_PATTERN = re.compile(r'^0x[a-fA-F0-9]{64}$')
 
-def validate_amount(amount: float) -> bool:
-    return isinstance(amount, (int, float)) and amount > 0
+    @staticmethod
+    def validate_address(address: str) -> bool:
+        return bool(BlockchainValidator.ADDRESS_PATTERN.match(address))
 
-def process_input(data: dict) -> dict:
-    address = data.get('address', '')
-    amount = data.get('amount', 0)
+    @staticmethod
+    def validate_tx_hash(tx_hash: str) -> bool:
+        return bool(BlockchainValidator.TX_HASH_PATTERN.match(tx_hash))
 
-    if not validate_address(address):
-        raise ValueError(f'invalid blockchain address: {address}')
+    @staticmethod
+    def validate_amount(amount: float) -> bool:
+        return isinstance(amount, (int, float)) and amount > 0
 
-    if not validate_amount(amount):
-        raise ValueError(f'invalid transaction amount: {amount}')
-
-    return {'status': 'valid', 'data': data}
-
-def main_loop(items: list):
-    for item in items:
-        try:
-            validated = process_input(item)
-            print(f'processing: {validated}')
-        except (ValueError, TypeError) as e:
-            print(f'skipped item: {e}')
+def process_input(data: dict) -> bool:
+    required_fields = ['address', 'tx_hash', 'amount']
+    if not all(field in data for field in required_fields):
+        return False
+    
+    if not BlockchainValidator.validate_address(data['address']):
+        return False
+    if not BlockchainValidator.validate_tx_hash(data['tx_hash']):
+        return False
+    if not BlockchainValidator.validate_amount(data['amount']):
+        return False
+        
+    return True
