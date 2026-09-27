@@ -1,28 +1,25 @@
 import re
 
-def validate_address(address: str) -> bool:
-    return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
+def is_valid_ethereum_address(address: str) -> bool:
+    if not isinstance(address, str):
+        return False
+    return bool(re.match(r"^0x[0-9a-fA-F]{40}$", address))
 
-def validate_amount(amount: str) -> bool:
-    try:
-        return float(amount) > 0
-    except ValueError:
+def is_valid_bitcoin_address(address: str) -> bool:
+    if not isinstance(address, str):
         return False
+    legacy_p2sh = r"^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$"
+    bech32 = r"^bc1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{39,59}$"
+    return bool(re.match(legacy_p2sh, address)) or bool(re.match(bech32, address.lower()))
 
-def validate_tx_data(data: dict) -> bool:
-    required_fields = ['sender', 'receiver', 'amount', 'gas_limit']
-    if not all(field in data for field in required_fields):
+def is_valid_tx_hash(tx_hash: str) -> bool:
+    if not isinstance(tx_hash, str):
         return False
-    
-    if not validate_address(data['sender']) or not validate_address(data['receiver']):
-        return False
-    
-    if not validate_amount(str(data['amount'])):
-        return False
-        
-    return isinstance(data['gas_limit'], int) and data['gas_limit'] > 21000
+    clean_hash = tx_hash[2:] if tx_hash.startswith("0x") else tx_hash
+    return bool(re.match(r"^[0-9a-fA-F]{64}$", clean_hash))
 
-def process_input(raw_data: dict) -> dict:
-    if not validate_tx_data(raw_data):
-        raise ValueError('invalid transaction data format')
-    return raw_data
+def is_valid_private_key(private_key: str) -> bool:
+    if not isinstance(private_key, str):
+        return False
+    clean_key = private_key[2:] if private_key.startswith("0x") else private_key
+    return bool(re.match(r"^[0-9a-fA-F]{64}$", clean_key))
