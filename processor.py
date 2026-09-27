@@ -1,36 +1,26 @@
-import functools
-import time
-from typing import Callable, Any
+from typing import Dict, List, Any
+from decimal import Decimal, ROUND_HALF_UP
 
-class TransactionProcessor:
-    def __init__(self, cache_size: int = 128):
-        self._cache_size = cache_size
-        self._cache = {}
-
-    def memoize_validation(self, func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            key = (args, tuple(sorted(kwargs.items())))
-            if key in self._cache:
-                return self._cache[key]
-            
-            result = func(*args, **kwargs)
-            
-            if len(self._cache) >= self._cache_size:
-                self._cache.pop(next(iter(self._cache)))
-            
-            self._cache[key] = result
-            return result
-        return wrapper
+class CryptoProcessor:
+    @staticmethod
+    def format_balance(amount: str, precision: int = 8) -> Decimal:
+        return Decimal(amount).quantize(
+            Decimal('1.' + '0' * precision),
+            rounding=ROUND_HALF_UP
+        )
 
     @staticmethod
-    def batch_process(data: list, chunk_size: int = 1000) -> list:
-        return [data[i:i + chunk_size] for i in range(0, len(data), chunk_size)]
+    def calculate_trade_value(price: str, quantity: str) -> Decimal:
+        return Decimal(price) * Decimal(quantity)
 
-def performance_decorator(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        start = time.perf_counter()
-        result = func(*args, **kwargs)
-        return result
-    return wrapper
+    @staticmethod
+    def normalize_ticker(ticker: str) -> str:
+        return ticker.strip().upper().replace('/', '_')
+
+    def batch_process_rates(data: List[Dict[str, Any]]) -> Dict[str, Decimal]:
+        results = {}
+        for entry in data:
+            ticker = self.normalize_ticker(entry.get('symbol', ''))
+            rate = entry.get('price', '0')
+            results[ticker] = Decimal(rate)
+        return results
