@@ -1,25 +1,28 @@
 import re
+from typing import Optional
 
-def is_valid_ethereum_address(address: str) -> bool:
-    if not isinstance(address, str):
-        return False
-    return bool(re.match(r"^0x[0-9a-fA-F]{40}$", address))
+def validate_address(address: str, chain_type: str = 'evm') -> bool:
+    if chain_type == 'evm':
+        return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
+    if chain_type == 'btc':
+        return bool(re.match(r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', address))
+    return False
 
-def is_valid_bitcoin_address(address: str) -> bool:
-    if not isinstance(address, str):
+def validate_amount(amount: str) -> bool:
+    try:
+        value = float(amount)
+        return value >= 0
+    except ValueError:
         return False
-    legacy_p2sh = r"^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$"
-    bech32 = r"^bc1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{39,59}$"
-    return bool(re.match(legacy_p2sh, address)) or bool(re.match(bech32, address.lower()))
 
-def is_valid_tx_hash(tx_hash: str) -> bool:
-    if not isinstance(tx_hash, str):
-        return False
-    clean_hash = tx_hash[2:] if tx_hash.startswith("0x") else tx_hash
-    return bool(re.match(r"^[0-9a-fA-F]{64}$", clean_hash))
+def sanitize_tx_hash(tx_hash: str) -> Optional[str]:
+    clean_hash = tx_hash.strip().lower()
+    if re.match(r'^0x[a-f0-9]{64}$', clean_hash):
+        return clean_hash
+    return None
 
-def is_valid_private_key(private_key: str) -> bool:
-    if not isinstance(private_key, str):
-        return False
-    clean_key = private_key[2:] if private_key.startswith("0x") else private_key
-    return bool(re.match(r"^[0-9a-fA-F]{64}$", clean_key))
+def format_wei_to_eth(wei: int) -> float:
+    return float(wei) / 10**18
+
+def is_valid_gas_price(price: int) -> bool:
+    return isinstance(price, int) and price > 0
