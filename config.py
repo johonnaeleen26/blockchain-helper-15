@@ -1,32 +1,27 @@
 import os
-import json
 from typing import Any, Dict
 
-DEFAULT_CONFIG = {
-    "rpc_url": "https://mainnet.infura.io/v3/",
-    "timeout": 30,
-    "retries": 3,
-    "chain_id": 1
+DEFAULT_CONFIG: Dict[str, Any] = {
+    "RPC_URL": "https://mainnet.infura.io/v3/",
+    "TIMEOUT": 30,
+    "MAX_RETRIES": 3,
+    "BLOCK_TIME_SECONDS": 12,
 }
 
-def load_config(config_path: str = "config.json") -> Dict[str, Any]:
+def load_config(env_vars: Dict[str, str] = None) -> Dict[str, Any]:
     config = DEFAULT_CONFIG.copy()
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, "r") as f:
-                user_config = json.load(f)
-                config.update(user_config)
-        except (json.JSONDecodeError, IOError):
-            pass
+    env = env_vars or os.environ
+    
+    for key in config.keys():
+        value = env.get(key)
+        if value:
+            if isinstance(config[key], int):
+                config[key] = int(value)
+            else:
+                config[key] = value
+    
     return config
 
-class ConfigManager:
-    def __init__(self, path: str = "config.json"):
-        self._config = load_config(path)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return self._config.get(key, default)
-
-    @property
-    def all(self) -> Dict[str, Any]:
-        return self._config.copy()
+if __name__ == "__main__":
+    cfg = load_config()
+    print(cfg)
