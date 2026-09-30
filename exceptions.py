@@ -1,25 +1,35 @@
-class BlockchainError(Exception):
-    """Base exception for blockchain-helper-15"""
+class BlockchainHelperError(Exception):
+    """Base exception for the blockchain-helper-15 package."""
 
-class ConnectionTimeoutError(BlockchainError):
-    """Raised when network requests exceed threshold"""
 
-class ValidationError(BlockchainError):
-    """Raised when data fails format constraints"""
+class ConnectionTimeoutError(BlockchainHelperError):
+    """Raised when the blockchain node fails to respond."""
 
-class InsufficientFundsError(BlockchainError):
-    """Raised when wallet balance is too low"""
 
-class TransactionBroadcastError(BlockchainError):
-    """Raised when transaction rejection occurs at node"""
+class InsufficientBalanceError(BlockchainHelperError):
+    """Raised when account balance is too low for transaction."""
 
-def handle_blockchain_exception(e: Exception) -> str:
-    if isinstance(e, ConnectionTimeoutError):
-        return "NETWORK_RETRY_REQUIRED"
-    if isinstance(e, ValidationError):
-        return "INVALID_DATA_STRUCTURE"
-    if isinstance(e, InsufficientFundsError):
-        return "USER_ACTION_REQUIRED"
-    if isinstance(e, TransactionBroadcastError):
-        return "REJECTED_BY_NODE"
-    return "INTERNAL_SYSTEM_FAILURE"
+
+class InvalidAddressError(BlockchainHelperError):
+    """Raised when an address fails format validation."""
+
+
+class TransactionRevertedError(BlockchainHelperError):
+    """Raised when a transaction fails on-chain."""
+
+
+class SerializationError(BlockchainHelperError):
+    """Raised during encoding or decoding failures."""
+
+
+def raise_for_status(status_code: int, message: str) -> None:
+    if status_code == 408:
+        raise ConnectionTimeoutError(message)
+    if status_code == 402:
+        raise InsufficientBalanceError(message)
+    if status_code == 400:
+        raise InvalidAddressError(message)
+    if status_code == 422:
+        raise TransactionRevertedError(message)
+    if status_code >= 400:
+        raise BlockchainHelperError(f"Error {status_code}: {message}")
