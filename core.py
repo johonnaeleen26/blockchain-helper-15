@@ -1,27 +1,34 @@
-import functools
-from typing import Any, Callable, Dict
+import hashlib
+from functools import lru_cache
+from typing import List
 
-CACHE: Dict[tuple, Any] = {}
 
-def memoize_blockchain_data(func: Callable) -> Callable:
-    @functools.lru_cache(maxsize=1024)
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs) -> Any:
-        return func(*args, **kwargs)
-    return wrapper
+class BlockchainCore:
+    def __init__(self, cache_size: int = 1024):
+        self.cache_size = cache_size
 
-class BlockchainProcessor:
-    def __init__(self, node_url: str):
-        self.node_url = node_url
+    @staticmethod
+    @lru_cache(maxsize=4096)
+    def double_sha256(data: bytes) -> bytes:
+        return hashlib.sha256(hashlib.sha256(data).digest()).digest()
 
-    @memoize_blockchain_data
-    def fetch_block_header(self, block_height: int) -> dict:
-        return {"height": block_height, "hash": "0x0" * 64}
+    def compute_merkle_root(self, tx_hashes: List[bytes]) -> bytes:
+        if not tx_hashes:
+            return b''
 
-    def process_batch(self, heights: list) -> list:
-        return [self.fetch_block_header(h) for h in heights]
+        current_level = tx_hashes
+        while len(current_level) > 1:
+            next_level = []
+            for i in range(0, len(current_level), 2):
+                left = current_level[i]
+                right = current_level[i + 1] if i + 1 < len(current_level) else left
+                combined = left + right
+                next_level.append(self.double_sha256(combined))
+            current_level = next_level
 
-if __name__ == "__main__":
-    processor = BlockchainProcessor("https://mainnet.infura.io")
-    data = processor.process_batch(range(100))
-    print(f"Processed {len(data)} blocks")
+        return current_level[0]
+
+    @lru_cache(maxsize=1024)
+    def verify_proof_of_work(self, header_hash: bytes, difficulty_target: int) -> bool:
+        hash_int = int.from_bytes(header_hash, byteorder='big')
+        return hash_int < difficulty_target
