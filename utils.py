@@ -1,31 +1,26 @@
-from typing import Union, List, Optional
 import hashlib
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Union
 
 
-def calculate_hash(data: str) -> str:
-    """Generates a SHA-256 hash for the given input string."""
+def calculate_sha256(data: str) -> str:
     return hashlib.sha256(data.encode('utf-8')).hexdigest()
 
 
-def format_wei(value: Union[int, float]) -> str:
-    """Converts wei units to human-readable string representation."""
-    return f"{value / 10**18:.18f}"
+def format_crypto_amount(amount: Union[str, float, Decimal], precision: int = 8) -> Decimal:
+    factor = Decimal(10) ** -precision
+    return Decimal(str(amount)).quantize(factor, rounding=ROUND_HALF_UP)
 
 
-def validate_address(address: str) -> bool:
-    """Checks if a string is a valid hexadecimal blockchain address."""
-    return len(address) == 42 and address.startswith('0x')
+def validate_address_format(address: str, length: int = 42) -> bool:
+    if not address.startswith('0x'):
+        return False
+    return len(address) == length and all(c in '0123456789abcdefABCDEF' for c in address[2:])
 
 
-def filter_transactions(txs: List[dict], min_val: float) -> List[dict]:
-    """Returns transactions with values exceeding the specified threshold."""
-    return [tx for tx in txs if tx.get('value', 0) >= min_val]
+def wei_to_ether(wei: Union[int, str]) -> Decimal:
+    return Decimal(wei) / Decimal(10**18)
 
 
-def get_network_config(network_id: Optional[int] = None) -> dict:
-    """Retrieves RPC configuration based on network identifier."""
-    configs = {
-        1: {"rpc": "https://mainnet.infura.io", "chain_id": 1},
-        137: {"rpc": "https://polygon-rpc.com", "chain_id": 137}
-    }
-    return configs.get(network_id or 1, {"rpc": "localhost", "chain_id": 0})
+def ether_to_wei(ether: Union[str, float, Decimal]) -> int:
+    return int(Decimal(str(ether)) * 10**18)
