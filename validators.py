@@ -1,56 +1,26 @@
-import re
-from typing import Any, Union
-
-EVM_ADDRESS_PATTERN = re.compile(r"^0x[a-fA-F0-9]{40}$")
-TX_HASH_PATTERN = re.compile(r"^0x[a-fA-F0-9]{64}$")
+from typing import Any, Dict
 
 
-def is_valid_evm_address(address: Any) -> bool:
-    """Validate if the given input is a structurally valid EVM address.
+def validate_transaction_payload(payload: Dict[str, Any]) -> None:
+    required_fields = {'sender', 'recipient', 'amount', 'signature'}
+    if not all(field in payload for field in required_fields):
+        raise ValueError('missing mandatory transaction fields')
 
-    Args:
-        address: The value to validate.
+    if not isinstance(payload['amount'], (int, float)) or payload['amount'] <= 0:
+        raise ValueError('invalid transaction amount')
 
-    Returns:
-        True if valid EVM address string, False otherwise.
-    """
-    if not isinstance(address, str):
+    if not isinstance(payload['signature'], str) or len(payload['signature']) < 64:
+        raise ValueError('invalid cryptographic signature length')
+
+
+def validate_block_hash(block_hash: str) -> bool:
+    if not isinstance(block_hash, str) or len(block_hash) != 64:
         return False
-    return bool(EVM_ADDRESS_PATTERN.match(address))
+    return all(c in '0123456789abcdef' for c in block_hash.lower())
 
 
-def is_valid_tx_hash(tx_hash: Any) -> bool:
-    """Validate if the given input is a structurally valid Ethereum transaction hash.
-
-    Args:
-        tx_hash: The value to validate.
-
-    Returns:
-        True if valid transaction hash string, False otherwise.
-    """
-    if not isinstance(tx_hash, str):
-        return False
-    return bool(TX_HASH_PATTERN.match(tx_hash))
-
-
-def validate_amount(amount: Union[int, float, str]) -> float:
-    """Validate and convert crypto amount to float representation.
-
-    Args:
-        amount: The value to convert and validate.
-
-    Raises:
-        ValueError: If amount is negative or invalid format.
-
-    Returns:
-        The validated amount as a float.
-    """
-    try:
-        parsed_amount = float(amount)
-    except (ValueError, TypeError) as err:
-        raise ValueError(f"Invalid numeric format: {amount}") from err
-
-    if parsed_amount < 0:
-        raise ValueError("Amount cannot be negative")
-
-    return parsed_amount
+def sanitize_address(address: str) -> str:
+    clean_address = address.strip().lower()
+    if not clean_address.startswith('0x') or len(clean_address) != 42:
+        raise ValueError('malformed blockchain address format')
+    return clean_address
