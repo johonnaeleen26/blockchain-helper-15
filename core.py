@@ -1,34 +1,37 @@
-import hashlib
-from functools import lru_cache
-from typing import List
+import re
+from hashlib import sha256
+from typing import Union
 
 
-class BlockchainCore:
-    def __init__(self, cache_size: int = 1024):
-        self.cache_size = cache_size
+def wei_to_ether(wei: int) -> float:
+    if wei < 0:
+        raise ValueError("Wei amount cannot be negative")
+    return wei / 10**18
 
-    @staticmethod
-    @lru_cache(maxsize=4096)
-    def double_sha256(data: bytes) -> bytes:
-        return hashlib.sha256(hashlib.sha256(data).digest()).digest()
 
-    def compute_merkle_root(self, tx_hashes: List[bytes]) -> bytes:
-        if not tx_hashes:
-            return b''
+def ether_to_wei(ether: Union[int, float]) -> int:
+    if ether < 0:
+        raise ValueError("Ether amount cannot be negative")
+    return int(ether * 10**18)
 
-        current_level = tx_hashes
-        while len(current_level) > 1:
-            next_level = []
-            for i in range(0, len(current_level), 2):
-                left = current_level[i]
-                right = current_level[i + 1] if i + 1 < len(current_level) else left
-                combined = left + right
-                next_level.append(self.double_sha256(combined))
-            current_level = next_level
 
-        return current_level[0]
+def satoshi_to_btc(satoshi: int) -> float:
+    if satoshi < 0:
+        raise ValueError("Satoshi amount cannot be negative")
+    return satoshi / 10**8
 
-    @lru_cache(maxsize=1024)
-    def verify_proof_of_work(self, header_hash: bytes, difficulty_target: int) -> bool:
-        hash_int = int.from_bytes(header_hash, byteorder='big')
-        return hash_int < difficulty_target
+
+def btc_to_satoshi(btc: Union[int, float]) -> int:
+    if btc < 0:
+        raise ValueError("BTC amount cannot be negative")
+    return int(btc * 10**8)
+
+
+def is_valid_tx_hash(tx_hash: str) -> bool:
+    if not isinstance(tx_hash, str):
+        return False
+    return bool(re.match(r"^(0x)?[0-9a-fA-F]{64}$", tx_hash))
+
+
+def double_sha256(data: bytes) -> str:
+    return sha256(sha256(data).digest()).hexdigest()
