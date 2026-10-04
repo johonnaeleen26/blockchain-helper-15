@@ -1,37 +1,24 @@
-import re
-from hashlib import sha256
-from typing import Union
+import functools
+from typing import Any, Callable
 
+class ChainProcessor:
+    def __init__(self, cache_size: int = 1024):
+        self.cache_size = cache_size
 
-def wei_to_ether(wei: int) -> float:
-    if wei < 0:
-        raise ValueError("Wei amount cannot be negative")
-    return wei / 10**18
+    @staticmethod
+    @functools.lru_cache(maxsize=1024)
+    def derive_address(pubkey: bytes) -> str:
+        return pubkey.hex()[:42]
 
+    @staticmethod
+    def batch_process(items: list, func: Callable) -> list:
+        return [func(item) for item in items]
 
-def ether_to_wei(ether: Union[int, float]) -> int:
-    if ether < 0:
-        raise ValueError("Ether amount cannot be negative")
-    return int(ether * 10**18)
+    def optimize_sequence(self, sequence: list[bytes]) -> list[str]:
+        return [self.derive_address(item) for item in sequence]
 
-
-def satoshi_to_btc(satoshi: int) -> float:
-    if satoshi < 0:
-        raise ValueError("Satoshi amount cannot be negative")
-    return satoshi / 10**8
-
-
-def btc_to_satoshi(btc: Union[int, float]) -> int:
-    if btc < 0:
-        raise ValueError("BTC amount cannot be negative")
-    return int(btc * 10**8)
-
-
-def is_valid_tx_hash(tx_hash: str) -> bool:
-    if not isinstance(tx_hash, str):
-        return False
-    return bool(re.match(r"^(0x)?[0-9a-fA-F]{64}$", tx_hash))
-
-
-def double_sha256(data: bytes) -> str:
-    return sha256(sha256(data).digest()).hexdigest()
+if __name__ == '__main__':
+    processor = ChainProcessor()
+    test_data = [b'\x01' * 32, b'\x02' * 32, b'\x01' * 32]
+    results = processor.optimize_sequence(test_data)
+    print(results)
