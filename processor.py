@@ -1,26 +1,24 @@
-from typing import Dict, List, Any
-from decimal import Decimal, ROUND_HALF_UP
+import decimal
+from typing import Dict, Union
 
-class CryptoProcessor:
-    @staticmethod
-    def format_balance(amount: str, precision: int = 8) -> Decimal:
-        return Decimal(amount).quantize(
-            Decimal('1.' + '0' * precision),
-            rounding=ROUND_HALF_UP
-        )
+def normalize_amount(amount: Union[str, float, int]) -> decimal.Decimal:
+    try:
+        return decimal.Decimal(str(amount)).normalize()
+    except (decimal.InvalidOperation, ValueError):
+        return decimal.Decimal('0')
 
-    @staticmethod
-    def calculate_trade_value(price: str, quantity: str) -> Decimal:
-        return Decimal(price) * Decimal(quantity)
+def calculate_fee(amount: decimal.Decimal, rate: str) -> decimal.Decimal:
+    fee_rate = decimal.Decimal(rate)
+    return (amount * fee_rate).quantize(decimal.Decimal('0.00000001'))
 
-    @staticmethod
-    def normalize_ticker(ticker: str) -> str:
-        return ticker.strip().upper().replace('/', '_')
+def format_crypto_payload(tx_hash: str, value: str, recipient: str) -> Dict[str, str]:
+    if not tx_hash.startswith('0x'):
+        raise ValueError('Invalid transaction hash format')
+    return {
+        'hash': tx_hash.lower(),
+        'value': str(normalize_amount(value)),
+        'recipient': recipient.lower()
+    }
 
-    def batch_process_rates(data: List[Dict[str, Any]]) -> Dict[str, Decimal]:
-        results = {}
-        for entry in data:
-            ticker = self.normalize_ticker(entry.get('symbol', ''))
-            rate = entry.get('price', '0')
-            results[ticker] = Decimal(rate)
-        return results
+def validate_balance_sufficiency(balance: str, required: str) -> bool:
+    return decimal.Decimal(balance) >= decimal.Decimal(required)
