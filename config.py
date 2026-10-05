@@ -1,48 +1,54 @@
-import json
 import os
-from dataclasses import dataclass, asdict
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 
-@dataclass
 class Config:
-    rpc_url: str = "https://mainnet.infura.io/v3/default"
-    chain_id: int = 1
-    request_timeout: int = 30
-    max_retries: int = 3
-    gas_limit_default: int = 21000
-    confirmation_blocks: int = 2
+    DEFAULT_CONFIG = {
+        "RPC_URL": "https://cloudflare-eth.com",
+        "CHAIN_ID": 1,
+        "TIMEOUT": 30,
+        "RETRY_COUNT": 3,
+        "GAS_LIMIT_MULTIPLIER": 1.1,
+    }
 
-    @classmethod
-    from_dict(cls, data: Dict[str, Any]) -> "Config":
-        valid_keys = {field for field in cls.__dataclass_fields__}
-        filtered = {k: v for k, v in data.items() if k in valid_keys}
-        return cls(**filtered)
+    def __init__(self, custom_config: Dict[str, Any] = None) -> None:
+        self._config = self.DEFAULT_CONFIG.copy()
+        if custom_config:
+            self._config.update(custom_config)
+        self._load_from_env()
 
-    @classmethod
-    def load_from_file(cls, filepath: Optional[str] = None) -> "Config":
-        if not filepath or not os.path.exists(filepath):
-            return cls()
-        with open(filepath, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return cls.from_dict(data)
+    def _load_from_env(self) -> None:
+        for key, default_val in self.DEFAULT_CONFIG.items():
+            env_val = os.getenv(f"BLOCKCHAIN_{key}")
+            if env_val is not None:
+                target_type = type(default_val)
+                try:
+                    if target_type is bool:
+                        self._config[key] = env_val.lower() in ("true", "1", "yes")
+                    else:
+                        self._config[key] = target_type(env_val)
+                except ValueError:
+                    pass
 
-    @classmethod
-    def load_from_env(cls) -> "Config":
-        env_mappings = {
-            "RPC_URL": ("rpc_url", str),
-            "CHAIN_ID": ("chain_id", int),
-            "REQUEST_TIMEOUT": ("request_timeout", int),
-            "MAX_RETRIES": ("max_retries", int),
-            "GAS_LIMIT_DEFAULT": ("gas_limit_default", int),
-            "CONFIRMATION_BLOCKS": ("confirmation_blocks", int),
-        }
-        data = {}
-        for env_key, (config_key, target_type) in env_mappings.items():
-            val = os.getenv(env_key)
-            if val is not None:
-                data[config_key] = target_type(val)
-        return cls.from_dict(data)
+    def get(self, key: str) -> Any:
+        return self._config.get(key)
 
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+    @property
+    def rpc_url(self) -> str:
+        return str(self.get("RPC_URL"))
+
+    @property
+    def chain_id(self) -> int:
+        return int(self.get("CHAIN_ID"))
+
+    @property
+    def timeout(self) -> int:
+        return int(self.get("TIMEOUT"))
+
+    @property
+    def retry_count(self) -> int:
+        return int(self.get("RETRY_COUNT"))
+
+    @property
+    def gas_limit_multiplier(self) -> float:
+        return float(self.get("GAS_LIMIT_MULTIPLIER"))
