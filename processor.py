@@ -1,24 +1,31 @@
-import decimal
-from typing import Dict, Union
+import logging
 
-def normalize_amount(amount: Union[str, float, int]) -> decimal.Decimal:
+class BlockchainError(Exception):
+    pass
+
+def process_transaction(tx_data: dict) -> dict:
+    if not isinstance(tx_data, dict):
+        raise ValueError('Invalid transaction data format')
+    
+    required = {'sender', 'receiver', 'amount'}
+    if not required.issubset(tx_data.keys()):
+        raise KeyError(f'Missing required fields: {required - tx_data.keys()}')
+
     try:
-        return decimal.Decimal(str(amount)).normalize()
-    except (decimal.InvalidOperation, ValueError):
-        return decimal.Decimal('0')
+        amount = float(tx_data['amount'])
+        if amount <= 0:
+            raise ValueError('Transaction amount must be positive')
+        
+        return {'status': 'success', 'tx_id': hash(frozenset(tx_data.items()))}
+    except (TypeError, ValueError) as e:
+        logging.error(f'Processing failed: {e}')
+        raise BlockchainError(f'Transaction validation failed: {e}')
 
-def calculate_fee(amount: decimal.Decimal, rate: str) -> decimal.Decimal:
-    fee_rate = decimal.Decimal(rate)
-    return (amount * fee_rate).quantize(decimal.Decimal('0.00000001'))
-
-def format_crypto_payload(tx_hash: str, value: str, recipient: str) -> Dict[str, str]:
-    if not tx_hash.startswith('0x'):
-        raise ValueError('Invalid transaction hash format')
-    return {
-        'hash': tx_hash.lower(),
-        'value': str(normalize_amount(value)),
-        'recipient': recipient.lower()
-    }
-
-def validate_balance_sufficiency(balance: str, required: str) -> bool:
-    return decimal.Decimal(balance) >= decimal.Decimal(required)
+def batch_process(transactions: list) -> list:
+    results = []
+    for tx in transactions:
+        try:
+            results.append(process_transaction(tx))
+        except (BlockchainError, KeyError, ValueError):
+            results.append({'status': 'failed'})
+    return results
