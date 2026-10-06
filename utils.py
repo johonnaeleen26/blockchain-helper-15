@@ -1,26 +1,23 @@
-import hashlib
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Union
+import time
+import functools
+import logging
+from typing import Callable, Any
 
+logger = logging.getLogger(__name__)
 
-def calculate_sha256(data: str) -> str:
-    return hashlib.sha256(data.encode('utf-8')).hexdigest()
-
-
-def format_crypto_amount(amount: Union[str, float, Decimal], precision: int = 8) -> Decimal:
-    factor = Decimal(10) ** -precision
-    return Decimal(str(amount)).quantize(factor, rounding=ROUND_HALF_UP)
-
-
-def validate_address_format(address: str, length: int = 42) -> bool:
-    if not address.startswith('0x'):
-        return False
-    return len(address) == length and all(c in '0123456789abcdefABCDEF' for c in address[2:])
-
-
-def wei_to_ether(wei: Union[int, str]) -> Decimal:
-    return Decimal(wei) / Decimal(10**18)
-
-
-def ether_to_wei(ether: Union[str, float, Decimal]) -> int:
-    return int(Decimal(str(ether)) * 10**18)
+def retry(attempts: int = 3, delay: float = 1.0, exceptions: tuple = (Exception,)): 
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exception = None
+            for i in range(attempts):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    logger.warning(f"attempt {i+1} failed: {e}")
+                    if i < attempts - 1:
+                        time.sleep(delay)
+            raise last_exception
+        return wrapper
+    return decorator
