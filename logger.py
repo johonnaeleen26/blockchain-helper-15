@@ -1,29 +1,45 @@
 import logging
-import sys
-from typing import Optional
+import os
+from logging.handlers import RotatingFileHandler
 
-class BlockchainLogger:
-    def __init__(self, name: str = "blockchain-helper-15", level: int = logging.INFO):
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(level)
-        self._setup_handlers()
 
-    def _setup_handlers(self) -> None:
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+def get_logger(
+    name: str,
+    log_file: str = "blockchain.log",
+    level: int = logging.INFO,
+    max_bytes: int = 5 * 1024 * 1024,
+    backup_count: int = 3,
+) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    if logger.hasHandlers():
+        return logger
+
+    log_format = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s"
+    )
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_format)
+    logger.addHandler(console_handler)
+
+    log_dir = os.path.dirname(log_file)
+    if log_dir and not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+
+    try:
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding="utf-8",
         )
-        stream_handler = logging.StreamHandler(sys.stdout)
-        stream_handler.setFormatter(formatter)
-        self.logger.addHandler(stream_handler)
+        file_handler.setFormatter(log_format)
+        logger.addHandler(file_handler)
+    except OSError:
+        logger.warning(
+            "Failed to initialize file logger, falling back to console only"
+        )
 
-    def info(self, msg: str) -> None:
-        self.logger.info(msg)
-
-    def error(self, msg: str, exc_info: Optional[Exception] = None) -> None:
-        self.logger.error(msg, exc_info=exc_info)
-
-    def warning(self, msg: str) -> None:
-        self.logger.warning(msg)
-
-def get_logger(name: str = "blockchain-helper-15") -> BlockchainLogger:
-    return BlockchainLogger(name)
+    return logger
