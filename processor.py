@@ -1,31 +1,24 @@
-import logging
+import hashlib
+from functools import lru_cache
+from typing import List, Dict
 
-class BlockchainError(Exception):
-    pass
+class BlockProcessor:
+    def __init__(self, cache_size: int = 1024):
+        self.cache_size = cache_size
 
-def process_transaction(tx_data: dict) -> dict:
-    if not isinstance(tx_data, dict):
-        raise ValueError('Invalid transaction data format')
-    
-    required = {'sender', 'receiver', 'amount'}
-    if not required.issubset(tx_data.keys()):
-        raise KeyError(f'Missing required fields: {required - tx_data.keys()}')
+    @lru_cache(maxsize=1024)
+    def derive_hash(self, data: str) -> str:
+        return hashlib.sha256(data.encode()).hexdigest()
 
-    try:
-        amount = float(tx_data['amount'])
-        if amount <= 0:
-            raise ValueError('Transaction amount must be positive')
-        
-        return {'status': 'success', 'tx_id': hash(frozenset(tx_data.items()))}
-    except (TypeError, ValueError) as e:
-        logging.error(f'Processing failed: {e}')
-        raise BlockchainError(f'Transaction validation failed: {e}')
+    def batch_process(self, transactions: List[Dict]) -> List[str]:
+        results = []
+        for tx in transactions:
+            payload = f"{tx['sender']}{tx['receiver']}{tx['amount']}"
+            results.append(self.derive_hash(payload))
+        return results
 
-def batch_process(transactions: list) -> list:
-    results = []
-    for tx in transactions:
-        try:
-            results.append(process_transaction(tx))
-        except (BlockchainError, KeyError, ValueError):
-            results.append({'status': 'failed'})
-    return results
+    def process_stream(self, stream: List[str]) -> List[str]:
+        return [self.derive_hash(s) for s in stream]
+
+    def clear_cache(self):
+        self.derive_hash.cache_clear()
