@@ -1,22 +1,18 @@
-import hashlib
-import json
-from typing import Any, Dict
+import time
+import functools
+from typing import Callable, Any, Type
 
-def calculate_hash(data: Dict[str, Any]) -> str:
-    encoded = json.dumps(data, sort_keys=True).encode()
-    return hashlib.sha256(encoded).hexdigest()
-
-def validate_transaction(tx: Dict[str, Any]) -> bool:
-    required = {'sender', 'receiver', 'amount', 'nonce'}
-    return all(key in tx for key in required) and tx['amount'] > 0
-
-def format_wei(amount: int) -> float:
-    return amount / 10**18
-
-def generate_payload(sender: str, receiver: str, amount: int) -> Dict[str, Any]:
-    return {
-        'sender': sender,
-        'receiver': receiver,
-        'amount': amount,
-        'nonce': 0
-    }
+def retry_network_call(max_retries: int = 3, delay: float = 1.0, exceptions: tuple = (ConnectionError, TimeoutError)) -> Callable:
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    time.sleep(delay * (2 ** attempt))
+            raise last_exception
+        return wrapper
+    return decorator
