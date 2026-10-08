@@ -1,24 +1,32 @@
 import hashlib
-from functools import lru_cache
-from typing import List, Dict
+import json
+from typing import Any, Dict
 
-class BlockProcessor:
-    def __init__(self, cache_size: int = 1024):
-        self.cache_size = cache_size
+def hash_data(data: Dict[str, Any]) -> str:
+    encoded = json.dumps(data, sort_keys=True).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
-    @lru_cache(maxsize=1024)
-    def derive_hash(self, data: str) -> str:
-        return hashlib.sha256(data.encode()).hexdigest()
+def validate_transaction(tx: Dict[str, Any]) -> bool:
+    required = {'sender', 'recipient', 'amount'}
+    return all(key in tx for key in required)
 
-    def batch_process(self, transactions: List[Dict]) -> List[str]:
-        results = []
-        for tx in transactions:
-            payload = f"{tx['sender']}{tx['receiver']}{tx['amount']}"
-            results.append(self.derive_hash(payload))
-        return results
+def format_currency(amount: float, precision: int = 8) -> str:
+    return f"{amount:.{precision}f}"
 
-    def process_stream(self, stream: List[str]) -> List[str]:
-        return [self.derive_hash(s) for s in stream]
+def aggregate_balances(transactions: list[Dict[str, Any]]) -> Dict[str, float]:
+    balances = {}
+    for tx in transactions:
+        sender = tx['sender']
+        recipient = tx['recipient']
+        amount = float(tx['amount'])
+        
+        balances[sender] = balances.get(sender, 0.0) - amount
+        balances[recipient] = balances.get(recipient, 0.0) + amount
+    return balances
 
-    def clear_cache(self):
-        self.derive_hash.cache_clear()
+def create_block_header(index: int, prev_hash: str, nonce: int) -> Dict[str, Any]:
+    return {
+        'index': index,
+        'previous_hash': prev_hash,
+        'nonce': nonce
+    }
