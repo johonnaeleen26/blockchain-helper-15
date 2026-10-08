@@ -1,54 +1,41 @@
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+
+DEFAULT_CONFIG: Dict[str, Any] = {
+    "rpc_url": "https://eth.llamarpc.com",
+    "chain_id": 1,
+    "timeout": 30,
+    "gas_multiplier": 1.15,
+    "max_retries": 3,
+    "use_wss": False,
+}
 
 
-class Config:
-    DEFAULT_CONFIG = {
-        "RPC_URL": "https://cloudflare-eth.com",
-        "CHAIN_ID": 1,
-        "TIMEOUT": 30,
-        "RETRY_COUNT": 3,
-        "GAS_LIMIT_MULTIPLIER": 1.1,
-    }
-
-    def __init__(self, custom_config: Dict[str, Any] = None) -> None:
-        self._config = self.DEFAULT_CONFIG.copy()
-        if custom_config:
-            self._config.update(custom_config)
+class ConfigLoader:
+    def __init__(self, overrides: Optional[Dict[str, Any]] = None):
+        self._config = DEFAULT_CONFIG.copy()
+        if overrides:
+            self._config.update(overrides)
         self._load_from_env()
 
     def _load_from_env(self) -> None:
-        for key, default_val in self.DEFAULT_CONFIG.items():
-            env_val = os.getenv(f"BLOCKCHAIN_{key}")
-            if env_val is not None:
-                target_type = type(default_val)
+        env_mappings = {
+            "BLOCKCHAIN_RPC_URL": ("rpc_url", str),
+            "BLOCKCHAIN_CHAIN_ID": ("chain_id", int),
+            "BLOCKCHAIN_TIMEOUT": ("timeout", int),
+            "BLOCKCHAIN_GAS_MULTIPLIER": ("gas_multiplier", float),
+            "BLOCKCHAIN_MAX_RETRIES": ("max_retries", int),
+        }
+        for env_var, (key, type_cast) in env_mappings.items():
+            val = os.getenv(env_var)
+            if val is not None:
                 try:
-                    if target_type is bool:
-                        self._config[key] = env_val.lower() in ("true", "1", "yes")
-                    else:
-                        self._config[key] = target_type(env_val)
+                    self._config[key] = type_cast(val)
                 except ValueError:
                     pass
 
-    def get(self, key: str) -> Any:
-        return self._config.get(key)
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._config.get(key, default)
 
-    @property
-    def rpc_url(self) -> str:
-        return str(self.get("RPC_URL"))
-
-    @property
-    def chain_id(self) -> int:
-        return int(self.get("CHAIN_ID"))
-
-    @property
-    def timeout(self) -> int:
-        return int(self.get("TIMEOUT"))
-
-    @property
-    def retry_count(self) -> int:
-        return int(self.get("RETRY_COUNT"))
-
-    @property
-    def gas_limit_multiplier(self) -> float:
-        return float(self.get("GAS_LIMIT_MULTIPLIER"))
+    def as_dict(self) -> Dict[str, Any]:
+        return self._config.copy()
