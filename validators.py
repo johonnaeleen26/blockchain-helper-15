@@ -1,36 +1,36 @@
 import re
-
-EVM_ADDRESS_PATTERN = re.compile(r"^0x[a-fA-F0-9]{40}$")
-SOLANA_ADDRESS_PATTERN = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$")
-BTC_ADDRESS_PATTERN = re.compile(
-    r"^(1[a-km-zA-HJ-NP-Z1-9]{25,34}|3[a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{39,59})$"
-)
+from typing import Union
 
 
-def is_valid_evm_address(address: str) -> bool:
-    if not address or not isinstance(address, str):
+def is_valid_eth_address(address: str) -> bool:
+    if not isinstance(address, str):
         return False
-    return bool(EVM_ADDRESS_PATTERN.match(address))
+    return bool(re.match(r"^0x[a-fA-F0-9]{40}$", address))
 
 
-def is_valid_solana_address(address: str) -> bool:
-    if not address or not isinstance(address, str):
+def is_valid_tx_hash(tx_hash: str) -> bool:
+    if not isinstance(tx_hash, str):
         return False
-    return bool(SOLANA_ADDRESS_PATTERN.match(address))
+    return bool(re.match(r"^0x[a-fA-F0-9]{64}$", tx_hash))
 
 
-def is_valid_btc_address(address: str) -> bool:
-    if not address or not isinstance(address, str):
+def is_valid_hex_string(val: str, length: Union[int, None] = None) -> bool:
+    if not isinstance(val, str) or not val.startswith("0x"):
         return False
-    return bool(BTC_ADDRESS_PATTERN.match(address))
+    hex_body = val[2:]
+    if length is not None and len(hex_body) != length:
+        return False
+    return bool(re.match(r"^[a-fA-F0-9]*$", hex_body))
 
 
-def validate_blockchain_address(address: str, chain: str) -> bool:
-    chain_lower = chain.strip().lower()
-    if chain_lower in ("eth", "ethereum", "evm", "bsc", "polygon"):
-        return is_valid_evm_address(address)
-    if chain_lower in ("sol", "solana"):
-        return is_valid_solana_address(address)
-    if chain_lower in ("btc", "bitcoin"):
-        return is_valid_btc_address(address)
-    raise ValueError(f"unsupported blockchain: {chain}")
+def validate_block_number(block: Union[int, str]) -> bool:
+    if isinstance(block, int):
+        return block >= 0
+    if isinstance(block, str):
+        if block.startswith("0x"):
+            try:
+                return int(block, 16) >= 0
+            except ValueError:
+                return False
+        return block.isdigit()
+    return False
