@@ -1,32 +1,27 @@
-"""Cryptocurrency and blockchain network constant definitions."""
+from typing import Final
 
-from typing import Dict, Final
+RPC_TIMEOUT: Final[int] = 30
+MAX_RETRIES: Final[int] = 3
+BLOCK_TIME_SEC: Final[float] = 12.0
 
-# Chain IDs for major EVM networks
-ETH_MAINNET: Final[int] = 1
-BSC_MAINNET: Final[int] = 56
-POLYGON_MAINNET: Final[int] = 137
-ARBITRUM_MAINNET: Final[int] = 42161
-OPTIMISM_MAINNET: Final[int] = 10
+HTTP_STATUS_OK: Final[int] = 200
+HTTP_STATUS_BAD_REQUEST: Final[int] = 400
+HTTP_STATUS_UNAUTHORIZED: Final[int] = 401
+HTTP_STATUS_NOT_FOUND: Final[int] = 404
+HTTP_STATUS_SERVER_ERROR: Final[int] = 500
 
-# Average block production times in seconds
-BLOCK_TIMES: Final[Dict[int, float]] = {
-    ETH_MAINNET: 12.0,
-    BSC_MAINNET: 3.0,
-    POLYGON_MAINNET: 2.0,
-    ARBITRUM_MAINNET: 0.25,
-    OPTIMISM_MAINNET: 2.0,
-}
+GAS_PRICE_MULTIPLIER: Final[float] = 1.1
+DEFAULT_CHAIN_ID: Final[int] = 1
 
-# Standard gas limits for EVM transactions
-STANDARD_GAS_LIMIT: Final[int] = 21000
-ERC20_TRANSFER_GAS_LIMIT: Final[int] = 65000
+SUPPORTED_NETWORKS: Final[tuple[str, ...]] = (
+    "mainnet",
+    "goerli",
+    "sepolia",
+    "polygon",
+    "bsc"
+)
 
-# Default token decimal precisions
-TOKEN_DECIMALS: Final[Dict[str, int]] = {
-    "ETH": 18,
-    "BTC": 8,
-    "USDT": 6,
-    "USDC": 6,
-    "DAI": 18,
-}
+ENV_VAR_PREFIX: Final[str] = "BC_HELPER_
+
+CURRENCY_SYMBOL: Final[str] = "ETH"
+DECIMALS: Final[int] = 18
