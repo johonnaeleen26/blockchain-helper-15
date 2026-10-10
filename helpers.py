@@ -1,24 +1,28 @@
 import hashlib
-import secrets
-from typing import Union
+import hmac
+from typing import Dict, Any
 
-def generate_keypair() -> tuple[str, str]:
-    private_key = secrets.token_hex(32)
-    public_key = hashlib.sha256(private_key.encode()).hexdigest()
-    return private_key, public_key
+def generate_signature(api_secret: str, query_string: str) -> str:
+    return hmac.new(
+        api_secret.encode('utf-8'),
+        query_string.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
 
-def validate_address(address: str) -> bool:
-    return len(address) == 64 and all(c in '0123456789abcdef' for c in address)
+def format_transaction(tx_hash: str, amount: float, currency: str) -> Dict[str, Any]:
+    return {
+        'tx_id': tx_hash.lower(),
+        'value': round(float(amount), 8),
+        'asset': currency.upper(),
+        'status': 'pending'
+    }
 
-def format_wei(value: Union[int, float]) -> float:
-    return value / 10**18
+def validate_address(address: str, chain: str) -> bool:
+    if chain == 'bitcoin':
+        return len(address) in range(26, 36)
+    if chain == 'ethereum':
+        return address.startswith('0x') and len(address) == 42
+    return False
 
-def create_hash(data: str) -> str:
-    return hashlib.sha256(data.encode()).hexdigest()
-
-def normalize_address(address: str) -> str:
-    return address.lower().strip()
-
-def sign_data(private_key: str, data: str) -> str:
-    payload = f"{private_key}{data}".encode()
-    return hashlib.sha256(payload).hexdigest()
+def parse_fee(fee_rate: float, gas_limit: int) -> float:
+    return float(fee_rate * gas_limit) / 10**8
