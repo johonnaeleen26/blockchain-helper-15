@@ -1,27 +1,26 @@
+from enum import Enum, unique
 from typing import Final
 
-RPC_TIMEOUT: Final[int] = 30
+@unique
+class NetworkMode(Enum):
+    MAINNET = 'mainnet'
+    TESTNET = 'testnet'
+    DEVNET = 'devnet'
+
 MAX_RETRIES: Final[int] = 3
-BLOCK_TIME_SEC: Final[float] = 12.0
+CACHE_TTL_SECONDS: Final[int] = 300
+CHUNK_SIZE: Final[int] = 1024
+RPC_TIMEOUT: Final[float] = 5.0
 
-HTTP_STATUS_OK: Final[int] = 200
-HTTP_STATUS_BAD_REQUEST: Final[int] = 400
-HTTP_STATUS_UNAUTHORIZED: Final[int] = 401
-HTTP_STATUS_NOT_FOUND: Final[int] = 404
-HTTP_STATUS_SERVER_ERROR: Final[int] = 500
+DEFAULT_HEADERS: Final[dict[str, str]] = {
+    'Content-Type': 'application/json',
+    'User-Agent': 'blockchain-helper-15/1.0'
+}
 
-GAS_PRICE_MULTIPLIER: Final[float] = 1.1
-DEFAULT_CHAIN_ID: Final[int] = 1
+SUPPORTED_CHAINS: Final[tuple[str, ...]] = ('ethereum', 'solana', 'bitcoin')
 
-SUPPORTED_NETWORKS: Final[tuple[str, ...]] = (
-    "mainnet",
-    "goerli",
-    "sepolia",
-    "polygon",
-    "bsc"
-)
+BATCH_LIMIT: Final[int] = 50
+MIN_CONFIRMATIONS: Final[int] = 6
 
-ENV_VAR_PREFIX: Final[str] = "BC_HELPER_
-
-CURRENCY_SYMBOL: Final[str] = "ETH"
-DECIMALS: Final[int] = 18
+def get_timeout(network: NetworkMode) -> float:
+    return RPC_TIMEOUT * (2 if network == NetworkMode.MAINNET else 1)
