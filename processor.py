@@ -1,33 +1,25 @@
-import hashlib
-import json
-from typing import Any, Dict
+import time
+import functools
+import requests
+from typing import Callable, Any
 
-def generate_hash(data: Dict[str, Any]) -> str:
-    serialized = json.dumps(data, sort_keys=True).encode('utf-8')
-    return hashlib.sha256(serialized).hexdigest()
+def retry_network_op(max_retries: int = 3, delay: float = 1.0):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (requests.RequestException, ConnectionError) as e:
+                    last_exception = e
+                    time.sleep(delay * (2 ** attempt))
+            raise last_exception
+        return wrapper
+    return decorator
 
-def validate_transaction(tx: Dict[str, Any]) -> bool:
-    required_fields = {'sender', 'receiver', 'amount', 'nonce'}
-    return all(field in tx for field in required_fields)
-
-def format_address(address: str) -> str:
-    return address.strip().lower()
-
-def batch_process(items: list, func: callable) -> list:
-    return [func(item) for item in items]
-
-def calculate_fee(amount: float, rate: float = 0.001) -> float:
-    return round(amount * rate, 8)
-
-class DataProcessor:
-    @staticmethod
-    def sanitize_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
-        return {k: v for k, v in payload.items() if v is not None}
-
-    @staticmethod
-    def to_wei(amount: float) -> int:
-        return int(amount * 10**18)
-
-    @staticmethod
-    def from_wei(amount: int) -> float:
-        return amount / 10**18
+@retry_network_op(max_retries=3, delay=2.0)
+def fetch_chain_data(url: str) -> dict:
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
+    return response.json()
