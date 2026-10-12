@@ -1,43 +1,41 @@
-import logging
-from typing import Dict, Any
-from validators import validate_tx_data
-from exceptions import ValidationError
+import hashlib
+import json
+from decimal import Decimal
+from typing import Any, Dict
 
-def process_blockchain_data(data: Dict[str, Any]) -> None:
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
 
-    required_fields = ['tx_hash', 'amount', 'sender', 'receiver']
+class CryptoDataHandler:
+    WEI_PER_ETHER = Decimal("1000000000000000000")
 
-    while True:
-        try:
-            if not isinstance(data, dict):
-                raise ValidationError("Invalid payload format")
+    @classmethod
+    def wei_to_ether(cls, wei_value: int) -> Decimal:
+        if wei_value < 0:
+            raise ValueError("Wei value cannot be negative")
+        return Decimal(wei_value) / cls.WEI_PER_ETHER
 
-            if not all(field in data for field in required_fields):
-                raise ValidationError("Missing mandatory transaction fields")
+    @classmethod
+    def ether_to_wei(cls, ether_value: Decimal) -> int:
+        if ether_value < 0:
+            raise ValueError("Ether value cannot be negative")
+        return int(ether_value * cls.WEI_PER_ETHER)
 
-            if not isinstance(data['amount'], (int, float)) or data['amount'] <= 0:
-                raise ValidationError("Invalid transaction amount")
+    @staticmethod
+    def parse_raw_transaction(raw_tx: Dict[str, Any]) -> Dict[str, Any]:
+        required_keys = {"from", "to", "value", "nonce"}
+        if not required_keys.issubset(raw_tx.keys()):
+            missing = required_keys - raw_tx.keys()
+            raise KeyError(f"Missing required keys: {missing}")
 
-            if len(data['tx_hash']) != 64:
-                raise ValidationError("Invalid transaction hash length")
+        value_int = int(raw_tx["value"])
+        return {
+            "sender": str(raw_tx["from"]).lower(),
+            "recipient": str(raw_tx["to"]).lower(),
+            "value_wei": value_int,
+            "value_ether": float(CryptoDataHandler.wei_to_ether(value_int)),
+            "nonce": int(raw_tx["nonce"]),
+        }
 
-            logger.info(f"Processing tx: {data['tx_hash']}")
-            break
-
-        except ValidationError as e:
-            logger.error(f"Validation failure: {e}")
-            break
-        except Exception as e:
-            logger.critical(f"Unexpected system error: {e}")
-            break
-
-if __name__ == "__main__":
-    sample_payload = {
-        "tx_hash": "a" * 64,
-        "amount": 1.5,
-        "sender": "0x123",
-        "receiver": "0x456"
-    }
-    process_blockchain_data(sample_payload)
+    @staticmethod
+    def compute_payload_hash(payload: Dict[str, Any]) -> str:
+        encoded = json.dumps(payload, sort_keys=True).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
