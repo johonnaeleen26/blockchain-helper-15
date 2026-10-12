@@ -1,24 +1,43 @@
-from typing import List, Dict, Optional
+import logging
+from typing import Dict, Any
+from validators import validate_tx_data
+from exceptions import ValidationError
 
-class BlockchainHandler:
-    def __init__(self, network: str = 'mainnet') -> None:
-        self.network: str = network
+def process_blockchain_data(data: Dict[str, Any]) -> None:
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
 
-    def format_transaction(self, tx_id: str, amount: float) -> Dict[str, str]:
-        """Format transaction data for blockchain broadcast."""
-        return {
-            "id": tx_id,
-            "amount": f"{amount:.8f}",
-            "network": self.network
-        }
+    required_fields = ['tx_hash', 'amount', 'sender', 'receiver']
 
-    def validate_batch(self, transactions: List[Dict[str, str]]) -> bool:
-        """Check if all transactions contain required fields."""
-        required = {"id", "amount", "network"}
-        return all(required.issubset(tx.keys()) for tx in transactions)
+    while True:
+        try:
+            if not isinstance(data, dict):
+                raise ValidationError("Invalid payload format")
 
-    def process_sequence(self, ids: List[str]) -> Optional[List[str]]:
-        """Verify and return transaction identifier sequence."""
-        if not ids:
-            return None
-        return [f"processed_{i}" for i in ids]
+            if not all(field in data for field in required_fields):
+                raise ValidationError("Missing mandatory transaction fields")
+
+            if not isinstance(data['amount'], (int, float)) or data['amount'] <= 0:
+                raise ValidationError("Invalid transaction amount")
+
+            if len(data['tx_hash']) != 64:
+                raise ValidationError("Invalid transaction hash length")
+
+            logger.info(f"Processing tx: {data['tx_hash']}")
+            break
+
+        except ValidationError as e:
+            logger.error(f"Validation failure: {e}")
+            break
+        except Exception as e:
+            logger.critical(f"Unexpected system error: {e}")
+            break
+
+if __name__ == "__main__":
+    sample_payload = {
+        "tx_hash": "a" * 64,
+        "amount": 1.5,
+        "sender": "0x123",
+        "receiver": "0x456"
+    }
+    process_blockchain_data(sample_payload)
