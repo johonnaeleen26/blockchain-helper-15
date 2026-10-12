@@ -1,29 +1,45 @@
 import logging
 import sys
-import json
-from datetime import datetime, timezone
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-class CryptoFormatter(logging.Formatter):
-    def format(self, record: logging.LogRecord) -> str:
-        log_data = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "level": record.levelname,
-            "message": record.getMessage(),
-            "module": record.module
-        }
-        if hasattr(record, "tx_hash"):
-            log_data["tx_hash"] = getattr(record, "tx_hash")
-        if hasattr(record, "block_number"):
-            log_data["block_number"] = getattr(record, "block_number")
-        return json.dumps(log_data)
 
-def get_blockchain_logger(name: str = "blockchain") -> logging.Logger:
+def setup_logger(
+    name: str = "blockchain_helper",
+    log_file: str = "logs/crypto_processor.log",
+    level: int = logging.INFO,
+    max_bytes: int = 5_000_000,
+    backup_count: int = 5,
+) -> logging.Logger:
     logger = logging.getLogger(name)
-    if logger.hasHandlers():
+    logger.setLevel(level)
+
+    if logger.handlers:
         return logger
-    logger.setLevel(logging.INFO)
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(CryptoFormatter())
-    logger.addHandler(handler)
-    logger.propagate = False
+
+    formatter = logging.Formatter(
+        "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    log_path = Path(log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    file_handler = RotatingFileHandler(
+        log_path,
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        encoding="utf-8",
+    )
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
     return logger
+
+
+def get_logger(name: str = "blockchain_helper") -> logging.Logger:
+    return logging.getLogger(name)
