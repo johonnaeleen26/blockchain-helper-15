@@ -1,25 +1,31 @@
-import time
-import functools
-import requests
-from typing import Callable, Any
+import decimal
+from typing import Dict, Any, Optional
 
-def retry_network_op(max_retries: int = 3, delay: float = 1.0):
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            last_exception = None
-            for attempt in range(max_retries):
-                try:
-                    return func(*args, **kwargs)
-                except (requests.RequestException, ConnectionError) as e:
-                    last_exception = e
-                    time.sleep(delay * (2 ** attempt))
-            raise last_exception
-        return wrapper
-    return decorator
+class CryptoProcessor:
+    def __init__(self, precision: int = 18):
+        self.precision = precision
+        decimal.getcontext().prec = precision
 
-@retry_network_op(max_retries=3, delay=2.0)
-def fetch_chain_data(url: str) -> dict:
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
-    return response.json()
+    def format_wei(self, value: Any) -> decimal.Decimal:
+        try:
+            return decimal.Decimal(str(value))
+        except (decimal.InvalidOperation, ValueError):
+            return decimal.Decimal(0)
+
+    def calculate_share(self, amount: str, percentage: str) -> decimal.Decimal:
+        val = self.format_wei(amount)
+        ratio = self.format_wei(percentage)
+        return (val * ratio / 100).quantize(decimal.Decimal(10)**-self.precision)
+
+    def sanitize_payload(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            k: str(v) if not isinstance(v, (int, float, dict)) else v
+            for k, v in data.items()
+            if v is not None
+        }
+
+def get_exchange_rate(data: Dict[str, Any], pair: str) -> Optional[decimal.Decimal]:
+    rates = data.get('rates', {})
+    if pair not in rates:
+        return None
+    return decimal.Decimal(str(rates[pair]))
