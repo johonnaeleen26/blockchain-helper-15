@@ -1,31 +1,24 @@
-import decimal
-from typing import Dict, Any, Optional
+from typing import List, Dict, Optional
 
-class CryptoProcessor:
-    def __init__(self, precision: int = 18):
-        self.precision = precision
-        decimal.getcontext().prec = precision
+class BlockProcessor:
+    """Handles processing of raw blockchain transaction data."""
 
-    def format_wei(self, value: Any) -> decimal.Decimal:
-        try:
-            return decimal.Decimal(str(value))
-        except (decimal.InvalidOperation, ValueError):
-            return decimal.Decimal(0)
+    def __init__(self, network_id: str) -> None:
+        self.network_id: str = network_id
 
-    def calculate_share(self, amount: str, percentage: str) -> decimal.Decimal:
-        val = self.format_wei(amount)
-        ratio = self.format_wei(percentage)
-        return (val * ratio / 100).quantize(decimal.Decimal(10)**-self.precision)
+    def validate_tx(self, tx: Dict[str, any]) -> bool:
+        """Checks transaction schema integrity."""
+        required_fields: List[str] = ["hash", "sender", "amount"]
+        return all(field in tx for field in required_fields)
 
-    def sanitize_payload(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            k: str(v) if not isinstance(v, (int, float, dict)) else v
-            for k, v in data.items()
-            if v is not None
-        }
+    def process_batch(self, transactions: List[Dict[str, any]]) -> List[str]:
+        """Filters and returns list of valid transaction hashes."""
+        return [tx["hash"] for tx in transactions if self.validate_tx(tx)]
 
-def get_exchange_rate(data: Dict[str, Any], pair: str) -> Optional[decimal.Decimal]:
-    rates = data.get('rates', {})
-    if pair not in rates:
-        return None
-    return decimal.Decimal(str(rates[pair]))
+    def calculate_fee(self, amount: float, rate: float = 0.001) -> float:
+        """Calculates network fees based on transfer volume."""
+        return round(amount * rate, 8)
+
+def format_output(tx_data: List[str]) -> str:
+    """Converts list of hashes into comma-separated string."""
+    return ",".join(tx_data)
