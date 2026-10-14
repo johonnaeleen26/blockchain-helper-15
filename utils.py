@@ -1,50 +1,28 @@
-import re
-from typing import Union
+import hashlib
+from typing import Optional
 
-ETH_ADDRESS_PATTERN = re.compile(r"^0x[a-fA-F0-9]{40}$")
-BTC_ADDRESS_PATTERN = re.compile(r"^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,39}$")
+def generate_hash(data: str) -> str:
+    """Produce sha256 hash string for input data."""
+    return hashlib.sha256(data.encode('utf-8')).hexdigest()
 
-WEI_PER_ETH = 10**18
-GWEI_PER_ETH = 10**9
-SATOSHI_PER_BTC = 10**8
+def validate_address(address: str) -> bool:
+    """Verify address format against standard constraints."""
+    return len(address) == 42 and address.startswith('0x')
 
+def format_wei_to_eth(wei: int) -> float:
+    """Convert wei integer to eth float value."""
+    return wei / 10**18
 
-def wei_to_eth(wei_val: int) -> float:
-    if wei_val < 0:
-        raise ValueError("Wei value cannot be negative")
-    return wei_val / WEI_PER_ETH
+def get_chain_id(network: str) -> Optional[int]:
+    """Map network name to integer chain identifier."""
+    mapping = {
+        'mainnet': 1,
+        'goerli': 5,
+        'sepolia': 11155111
+    }
+    return mapping.get(network.lower())
 
-
-def eth_to_wei(eth_val: Union[int, float]) -> int:
-    if eth_val < 0:
-        raise ValueError("ETH value cannot be negative")
-    return int(eth_val * WEI_PER_ETH)
-
-
-def satoshi_to_btc(satoshi_val: int) -> float:
-    if satoshi_val < 0:
-        raise ValueError("Satoshi value cannot be negative")
-    return satoshi_val / SATOSHI_PER_BTC
-
-
-def btc_to_satoshi(btc_val: Union[int, float]) -> int:
-    if btc_val < 0:
-        raise ValueError("BTC value cannot be negative")
-    return int(btc_val * SATOSHI_PER_BTC)
-
-
-def is_valid_eth_address(address: str) -> bool:
-    return bool(ETH_ADDRESS_PATTERN.match(address))
-
-
-def is_valid_btc_address(address: str) -> bool:
-    return bool(BTC_ADDRESS_PATTERN.match(address))
-
-
-def format_tx_hash(tx_hash: str) -> str:
-    clean_hash = tx_hash.lower()
-    if not clean_hash.startswith("0x"):
-        clean_hash = f"0x{clean_hash}"
-    if len(clean_hash) != 66:
-        raise ValueError("Invalid transaction hash length")
-    return clean_hash
+def sanitize_input(value: str) -> str:
+    """Remove whitespace and strip prefix from hex."""
+    clean = value.strip()
+    return clean[2:] if clean.startswith('0x') else clean
