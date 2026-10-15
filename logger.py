@@ -1,23 +1,28 @@
 import logging
-import sys
-from typing import Optional
+from logging.handlers import RotatingFileHandler
+import os
 
+LOG_FILE = "blockchain.log"
+MAX_BYTES = 5 * 1024 * 1024
+BACKUP_COUNT = 3
 
-def get_logger(name: str, level: int = logging.INFO) -> logging.Logger:
+def setup_logger(name: str = "blockchain-helper-15") -> logging.Logger:
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    logger.setLevel(logging.INFO)
 
     if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+
+        file_handler = RotatingFileHandler(
+            LOG_FILE, maxBytes=MAX_BYTES, backupCount=BACKUP_COUNT
+        )
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
 
     return logger
-
-
-def log_exception(logger: logging.Logger, exc: Exception, context: Optional[str] = None) -> None:
-    msg = f"Context: {context} | " if context else ""
-    logger.error(f"{msg}Exception occurred: {type(exc).__name__} - {str(exc)}")
