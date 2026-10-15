@@ -1,23 +1,23 @@
 # blockchain-helper-15
 
-A high-performance Python toolkit designed to streamline interactions with EVM-compatible blockchains. It simplifies complex data retrieval and transaction signing for developers building decentralized applications.
+`blockchain-helper-15` is a lightweight Python toolkit designed to streamline interactions with EVM-compatible blockchains. It simplifies common tasks such as address validation, transaction gas estimation, and real-time event monitoring for decentralized applications.
 
 ## Features
 
-*   **Async Web3 Interface:** Built on `asyncio` to handle multiple blockchain queries concurrently without blocking execution.
-*   **Smart Contract Indexer:** Automated parsing of event logs into structured JSON formats for easier database integration.
-*   **Gas Estimation Engine:** Real-time fee calculation logic that monitors mempool congestion to optimize transaction costs.
-*   **Wallet Security Suite:** Includes robust mnemonic phrase validation and offline transaction signing capabilities to keep private keys secure.
+*   **Gas Oracle Integration:** Automatically fetches current network gas prices and suggests optimal priority fees based on real-time mempool congestion.
+*   **Smart Contract Interaction:** Provides a streamlined wrapper for Web3.py to deploy, interact with, and verify contracts with minimal boilerplate.
+*   **Event Watcher:** Built-in asynchronous listener for filtering and processing specific contract logs or transfer events in real-time.
+*   **Balance Aggregator:** Batch-query utility to retrieve ERC-20 token balances for multiple addresses in a single RPC call, significantly reducing latency.
 
 ## Installation
 
-Ensure you have Python 3.9+ installed. Install the library via pip:
+Ensure you have Python 3.9+ installed. You can install the package via pip:
 
 ```bash
 pip install blockchain-helper-15
 ```
 
-For local development and testing, clone the repository:
+For development purposes, clone the repository and install dependencies:
 
 ```bash
 git clone https://github.com/Developer/blockchain-helper-15.git
@@ -25,27 +25,27 @@ cd blockchain-helper-15
 pip install -r requirements.txt
 ```
 
-## Basic Usage
+## Usage
 
-Quickly connect to a network and fetch the balance of an address:
+Below is a quick example of how to connect to a provider and retrieve the gas price:
 
 ```python
 from blockchain_helper import Client
 
-# Initialize the helper with your RPC endpoint
-client = Client(provider_url="https://mainnet.infura.io/v3/YOUR_PROJECT_ID")
+# Initialize with your RPC provider
+client = Client(rpc_url="https://mainnet.infura.io/v3/YOUR_API_KEY")
 
-# Get ETH balance in Ether
-balance = client.get_balance("0x71C7656...73")
-print(f"Current Balance: {balance} ETH")
+# Get recommended gas price in Gwei
+gas_price = client.get_gas_price()
+print(f"Current recommended gas price: {gas_price} Gwei")
 
-# Estimate gas for a standard transfer
-gas_price = client.get_recommended_gas()
-print(f"Recommended Gas Price: {gas_price} Gwei")
+# Validate an Ethereum address
+is_valid = client.is_address("0x71C7656EC7ab88b098defB751B7401B5f6d8976F")
+print(f"Address valid: {is_valid}")
 ```
 
 ## License
 
-![MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-Distributed under the MIT License. See `LICENSE` for more information.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
