@@ -1,28 +1,26 @@
+from decimal import Decimal, getcontext
+from typing import Union
 import hashlib
-import hmac
-from typing import Dict, Any
 
-def generate_signature(api_secret: str, query_string: str) -> str:
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        query_string.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
+getcontext().prec = 28
 
-def format_transaction(tx_hash: str, amount: float, currency: str) -> Dict[str, Any]:
-    return {
-        'tx_id': tx_hash.lower(),
-        'value': round(float(amount), 8),
-        'asset': currency.upper(),
-        'status': 'pending'
-    }
+def wei_to_ether(wei: Union[int, str]) -> Decimal:
+    return Decimal(wei) / Decimal('1000000000000000000')
 
-def validate_address(address: str, chain: str) -> bool:
-    if chain == 'bitcoin':
-        return len(address) in range(26, 36)
-    if chain == 'ethereum':
-        return address.startswith('0x') and len(address) == 42
-    return False
+def ether_to_wei(ether: Union[float, str]) -> int:
+    return int(Decimal(str(ether)) * Decimal('1000000000000000000'))
 
-def parse_fee(fee_rate: float, gas_limit: int) -> float:
-    return float(fee_rate * gas_limit) / 10**8
+def calculate_sha256(data: str) -> str:
+    return hashlib.sha256(data.encode('utf-8')).hexdigest()
+
+def format_address(address: str) -> str:
+    if not address.startswith('0x'):
+        address = '0x' + address
+    return address.lower()
+
+def validate_gas_price(price: Union[int, float]) -> bool:
+    return price > 0
+
+def chunks(lst: list, n: int):
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
