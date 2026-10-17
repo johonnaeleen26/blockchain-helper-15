@@ -1,24 +1,32 @@
 from typing import List, Dict, Optional
 
-class BlockProcessor:
-    """Handles processing of raw blockchain transaction data."""
+class TransactionProcessor:
+    """Handles validation and processing of blockchain transactions."""
 
-    def __init__(self, network_id: str) -> None:
-        self.network_id: str = network_id
+    def __init__(self, chain_id: int) -> None:
+        self.chain_id: int = chain_id
+        self.processed_count: int = 0
 
-    def validate_tx(self, tx: Dict[str, any]) -> bool:
-        """Checks transaction schema integrity."""
-        required_fields: List[str] = ["hash", "sender", "amount"]
-        return all(field in tx for field in required_fields)
+    def validate(self, tx_data: Dict[str, str]) -> bool:
+        """Validates the integrity of transaction data."""
+        required_fields: List[str] = ['sender', 'recipient', 'amount']
+        return all(field in tx_data for field in required_fields)
 
-    def process_batch(self, transactions: List[Dict[str, any]]) -> List[str]:
-        """Filters and returns list of valid transaction hashes."""
-        return [tx["hash"] for tx in transactions if self.validate_tx(tx)]
+    def process_batch(self, transactions: List[Dict[str, str]]) -> Dict[str, int]:
+        """Processes a list of transactions and returns status counts."""
+        results: Dict[str, int] = {'success': 0, 'failed': 0}
 
-    def calculate_fee(self, amount: float, rate: float = 0.001) -> float:
-        """Calculates network fees based on transfer volume."""
-        return round(amount * rate, 8)
+        for tx in transactions:
+            if self.validate(tx):
+                self.processed_count += 1
+                results['success'] += 1
+            else:
+                results['failed'] += 1
+        
+        return results
 
-def format_output(tx_data: List[str]) -> str:
-    """Converts list of hashes into comma-separated string."""
-    return ",".join(tx_data)
+    def get_status(self) -> Optional[str]:
+        """Returns the current processor status message."""
+        if self.processed_count == 0:
+            return None
+        return f"chain_{self.chain_id}_processed_{self.processed_count}"
