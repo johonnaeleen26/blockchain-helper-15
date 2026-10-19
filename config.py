@@ -1,40 +1,52 @@
-import os
 import json
-from typing import Any, Dict
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, Optional
 
-DEFAULT_CONFIG = {
-    "rpc_url": "https://mainnet.infura.io/v3/",
+
+DEFAULT_CONFIG: Dict[str, Any] = {
+    "network": "mainnet",
+    "rpc_url": "https://eth-mainnet.g.alchemy.com/v2/demo",
     "timeout": 30,
-    "retries": 3,
-    "chain_id": 1
+    "max_retries": 3,
+    "gas_limit_multiplier": 1.2,
+    "cache_dir": "~/.cache/blockchain-helper",
 }
 
-def load_config(path: str = "config.json") -> Dict[str, Any]:
-    config = DEFAULT_CONFIG.copy()
-    if os.path.exists(path):
-        try:
-            with open(path, "r") as f:
-                user_config = json.load(f)
-                config.update(user_config)
-        except (json.JSONDecodeError, IOError):
-            pass
-    return config
 
-class ConfigManager:
-    def __init__(self, path: str = "config.json"):
-        self._data = load_config(path)
+@dataclass
+class Config:
+    network: str = DEFAULT_CONFIG["network"]
+    rpc_url: str = DEFAULT_CONFIG["rpc_url"]
+    timeout: int = DEFAULT_CONFIG["timeout"]
+    max_retries: int = DEFAULT_CONFIG["max_retries"]
+    gas_limit_multiplier: float = DEFAULT_CONFIG["gas_limit_multiplier"]
+    cache_dir: str = DEFAULT_CONFIG["cache_dir"]
 
-    def get(self, key: str, default: Any = None) -> Any:
-        return self._data.get(key, default)
+    def __post_init__(self) -> None:
+        self.cache_dir = os.path.expanduser(self.cache_dir)
 
-    @property
-    def rpc_url(self) -> str:
-        return self._data.get("rpc_url", DEFAULT_CONFIG["rpc_url"])
 
-    @property
-    def timeout(self) -> int:
-        return int(self._data.get("timeout", DEFAULT_CONFIG["timeout"]))
+class ConfigLoader:
+    def __init__(self, config_path: Optional[str] = None) -> None:
+        self.config_path = Path(config_path) if config_path else None
 
-    @property
-    def chain_id(self) -> int:
-        return int(self._data.get("chain_id", DEFAULT_CONFIG["chain_id"]))
+    def load(self) -> Config:
+        data = DEFAULT_CONFIG.copy()
+
+        if self.config_path and self.config_path.is_file():
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                data.update(json.load(f))
+
+        env_rpc = os.getenv("BLOCKCHAIN_RPC_URL")
+        if env_rpc:
+            data["rpc_url"] = env_rpc
+
+        env_network = os.getenv("BLOCKCHAIN_NETWORK")
+        if env_network:
+            data["network"] = env_network
+
+        valid_keys = Config.__annotations__.keys()
+        filtered_data = {k: v for k, v in data.items() if k in valid_keys}
+        return Config(**filtered_data)
