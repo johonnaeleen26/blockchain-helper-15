@@ -1,32 +1,33 @@
-from typing import List, Dict, Optional
+import logging
+from typing import Any, Dict, Optional
 
-class TransactionProcessor:
-    """Handles validation and processing of blockchain transactions."""
+class BlockchainProcessor:
+    def __init__(self, chain_id: int):
+        self.chain_id = chain_id
+        self.logger = logging.getLogger(__name__)
 
-    def __init__(self, chain_id: int) -> None:
-        self.chain_id: int = chain_id
-        self.processed_count: int = 0
+    def validate_payload(self, data: Dict[str, Any]) -> bool:
+        required = {'tx_hash', 'amount', 'sender'}
+        if not all(key in data for key in required):
+            self.logger.error('missing required transaction fields')
+            return False
+        if data['amount'] <= 0:
+            self.logger.error('invalid transaction amount')
+            return False
+        return True
 
-    def validate(self, tx_data: Dict[str, str]) -> bool:
-        """Validates the integrity of transaction data."""
-        required_fields: List[str] = ['sender', 'recipient', 'amount']
-        return all(field in tx_data for field in required_fields)
-
-    def process_batch(self, transactions: List[Dict[str, str]]) -> Dict[str, int]:
-        """Processes a list of transactions and returns status counts."""
-        results: Dict[str, int] = {'success': 0, 'failed': 0}
-
-        for tx in transactions:
-            if self.validate(tx):
-                self.processed_count += 1
-                results['success'] += 1
-            else:
-                results['failed'] += 1
+    def process_transaction(self, data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if not data:
+            raise ValueError('empty transaction payload')
         
-        return results
-
-    def get_status(self) -> Optional[str]:
-        """Returns the current processor status message."""
-        if self.processed_count == 0:
-            return None
-        return f"chain_{self.chain_id}_processed_{self.processed_count}"
+        try:
+            if not self.validate_payload(data):
+                return {'status': 'rejected', 'reason': 'validation_failed'}
+            
+            return {'status': 'confirmed', 'tx_hash': data['tx_hash']}
+        except KeyError as e:
+            self.logger.exception(f'malformed transaction data: {e}')
+            return {'status': 'error', 'reason': 'malformed_data'}
+        except Exception as e:
+            self.logger.critical(f'unexpected processing failure: {e}')
+            return {'status': 'failed', 'reason': 'internal_error'}
