@@ -1,41 +1,28 @@
-import hashlib
-import json
-from decimal import Decimal
-from typing import Any, Dict
+import time
+import functools
+import requests
+from typing import Callable, Any, Optional
 
+def retry_operation(retries: int = 3, delay: float = 1.0, backoff: float = 2.0):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            attempt = 0
+            current_delay = delay
+            while attempt < retries:
+                try:
+                    return func(*args, **kwargs)
+                except (requests.RequestException, ConnectionError):
+                    attempt += 1
+                    if attempt >= retries:
+                        raise
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+        return wrapper
+    return decorator
 
-class CryptoDataHandler:
-    WEI_PER_ETHER = Decimal("1000000000000000000")
-
-    @classmethod
-    def wei_to_ether(cls, wei_value: int) -> Decimal:
-        if wei_value < 0:
-            raise ValueError("Wei value cannot be negative")
-        return Decimal(wei_value) / cls.WEI_PER_ETHER
-
-    @classmethod
-    def ether_to_wei(cls, ether_value: Decimal) -> int:
-        if ether_value < 0:
-            raise ValueError("Ether value cannot be negative")
-        return int(ether_value * cls.WEI_PER_ETHER)
-
-    @staticmethod
-    def parse_raw_transaction(raw_tx: Dict[str, Any]) -> Dict[str, Any]:
-        required_keys = {"from", "to", "value", "nonce"}
-        if not required_keys.issubset(raw_tx.keys()):
-            missing = required_keys - raw_tx.keys()
-            raise KeyError(f"Missing required keys: {missing}")
-
-        value_int = int(raw_tx["value"])
-        return {
-            "sender": str(raw_tx["from"]).lower(),
-            "recipient": str(raw_tx["to"]).lower(),
-            "value_wei": value_int,
-            "value_ether": float(CryptoDataHandler.wei_to_ether(value_int)),
-            "nonce": int(raw_tx["nonce"]),
-        }
-
-    @staticmethod
-    def compute_payload_hash(payload: Dict[str, Any]) -> str:
-        encoded = json.dumps(payload, sort_keys=True).encode("utf-8")
-        return hashlib.sha256(encoded).hexdigest()
+@retry_operation(retries=3, delay=0.5)
+def fetch_blockchain_data(url: str) -> dict:
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
+    return response.json()
