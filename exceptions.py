@@ -1,22 +1,30 @@
-class BlockchainHelperError(Exception):
-    """Base exception for blockchain-helper-15."""
+class BlockchainError(Exception):
+    """Base exception for all blockchain operations."""
 
 
-class ConnectionError(BlockchainHelperError):
-    """Raised when network communication fails."""
+class ConnectionTimeoutError(BlockchainError):
+    """Raised when network requests exceed duration limits."""
 
 
-class ValidationError(BlockchainHelperError):
-    """Raised when data validation fails."""
+class InsufficientBalanceError(BlockchainError):
+    """Raised when account funds are inadequate for txn."""
 
 
-class InsufficientFundsError(BlockchainHelperError):
-    """Raised during transaction processing failures."""
+class InvalidSignatureError(BlockchainError):
+    """Raised when cryptographic verification fails."""
 
 
-class ConfigurationError(BlockchainHelperError):
-    """Raised when environment settings are invalid."""
+class TransactionBroadcastError(BlockchainError):
+    """Raised when node rejects a signed transaction."""
 
 
-class TimeoutError(BlockchainHelperError):
-    """Raised when a request exceeds time limits."""
+class GasPriceTooLowError(BlockchainError):
+    """Raised when fee parameters are insufficient for inclusion."""
+
+
+def handle_blockchain_exception(e: Exception) -> None:
+    """Centralized error reporting for blockchain modules."""
+    if isinstance(e, BlockchainError):
+        print(f"[Blockchain Error] {e.__class__.__name__}: {str(e)}")
+    else:
+        print(f"[Unexpected Error] {type(e).__name__}: {str(e)}")
