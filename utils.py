@@ -1,26 +1,34 @@
-import hashlib
-import hmac
 import time
-from typing import Any, Dict
+import functools
+import logging
+from typing import Callable, Any
 
-def generate_signature(api_secret: str, message: str) -> str:
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
+logger = logging.getLogger(__name__)
 
-def format_payload(params: Dict[str, Any]) -> str:
-    sorted_keys = sorted(params.keys())
-    return '&'.join([f"{k}={params[k]}" for k in sorted_keys])
+def retry_network_op(retries: int = 3, delay: float = 1.0, backoff: float = 2.0):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            current_delay = delay
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    if attempt == retries - 1:
+                        logger.error(f"Final attempt failed: {e}")
+                        raise
+                    
+                    logger.warning(f"Attempt {attempt + 1} failed, retrying in {current_delay}s...")
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
-def get_timestamp_ms() -> int:
-    return int(time.time() * 1000)
-
-def validate_address(address: str) -> bool:
-    if not address or len(address) < 26:
-        return False
-    return address.isalnum()
-
-def to_wei(amount: float, decimals: int = 18) -> int:
-    return int(amount * (10 ** decimals))
+@retry_network_op(retries=3)
+def fetch_blockchain_data(url: str):
+    # Simulate network call
+    import random
+    if random.random() < 0.7:
+        raise ConnectionError("Failed to connect to node")
+    return {"status": "success", "data": "mock_block_hash"}
