@@ -1,34 +1,37 @@
-import time
 import functools
 import logging
-from typing import Callable, Any
+import time
+from typing import Any, Callable, Tuple, Type
 
 logger = logging.getLogger(__name__)
 
-def retry_network_op(retries: int = 3, delay: float = 1.0, backoff: float = 2.0):
-    def decorator(func: Callable):
+
+def retry_network_op(
+    max_retries: int = 3,
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    exceptions: Tuple[Type[BaseException], ...] = (Exception,),
+) -> Callable:
+    def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             current_delay = delay
-            for attempt in range(retries):
+            for attempt in range(1, max_retries + 1):
                 try:
                     return func(*args, **kwargs)
-                except (ConnectionError, TimeoutError) as e:
-                    if attempt == retries - 1:
-                        logger.error(f"Final attempt failed: {e}")
+                except exceptions as exc:
+                    if attempt == max_retries:
+                        logger.error(
+                            f"Operation failed after {max_retries} attempts: {exc}"
+                        )
                         raise
-                    
-                    logger.warning(f"Attempt {attempt + 1} failed, retrying in {current_delay}s...")
+                    logger.warning(
+                        f"Attempt {attempt}/{max_retries} failed: {exc}. "
+                        f"Retrying in {current_delay:.2f}s..."
+                    )
                     time.sleep(current_delay)
                     current_delay *= backoff
-            return func(*args, **kwargs)
-        return wrapper
-    return decorator
 
-@retry_network_op(retries=3)
-def fetch_blockchain_data(url: str):
-    # Simulate network call
-    import random
-    if random.random() < 0.7:
-        raise ConnectionError("Failed to connect to node")
-    return {"status": "success", "data": "mock_block_hash"}
+        return wrapper
+
+    return decorator
