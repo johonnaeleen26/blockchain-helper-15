@@ -1,31 +1,34 @@
 import re
 from typing import Union
 
-
-def wei_to_ether(wei: int) -> float:
-    return wei / 10**18
-
-
-def ether_to_wei(ether: Union[int, float]) -> int:
-    return int(ether * 10**18)
+WEI_PER_ETH = 10**18
+GWEI_PER_ETH = 10**9
 
 
-def gwei_to_wei(gwei: Union[int, float]) -> int:
-    return int(gwei * 10**9)
+def wei_to_eth(wei: int) -> float:
+    if wei < 0:
+        raise ValueError("Wei amount cannot be negative")
+    return wei / WEI_PER_ETH
+
+
+def eth_to_wei(eth: Union[int, float]) -> int:
+    if eth < 0:
+        raise ValueError("ETH amount cannot be negative")
+    return int(eth * WEI_PER_ETH)
 
 
 def truncate_address(address: str, chars: int = 4) -> str:
     if not address.startswith("0x") or len(address) != 42:
-        raise ValueError("Invalid Ethereum address format")
+        raise ValueError("Invalid Ethereum address length")
     return f"{address[:chars + 2]}...{address[-chars:]}"
 
 
+def is_valid_tx_hash(tx_hash: str) -> bool:
+    return bool(re.match(r"^0x[a-fA-F0-9]{64}$", tx_hash))
+
+
 def calculate_gas_fee_eth(gas_limit: int, gas_price_gwei: float) -> float:
-    wei_price = gwei_to_wei(gas_price_gwei)
-    return wei_to_ether(gas_limit * wei_price)
-
-
-def is_hex_string(value: str) -> bool:
-    if value.startswith("0x"):
-        value = value[2:]
-    return bool(re.fullmatch(r"[0-9a-fA-F]+", value))
+    if gas_limit <= 0 or gas_price_gwei <= 0:
+        raise ValueError("Gas parameters must be positive")
+    total_gwei = gas_limit * gas_price_gwei
+    return total_gwei / GWEI_PER_ETH
