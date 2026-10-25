@@ -1,34 +1,37 @@
-import re
-from typing import Union
+import hashlib
+from functools import lru_cache
+from typing import Tuple
 
-WEI_PER_ETH = 10**18
-GWEI_PER_ETH = 10**9
+@lru_cache(maxsize=1024)
+def compute_merkle_root(transactions: Tuple[str, ...]) -> str:
+    if not transactions:
+        return hashlib.sha256(b'').hexdigest()
+    
+    nodes = [hashlib.sha256(tx.encode()).hexdigest() for tx in transactions]
+    
+    while len(nodes) > 1:
+        if len(nodes) % 2 != 0:
+            nodes.append(nodes[-1])
+        
+        new_level = []
+        for i in range(0, len(nodes), 2):
+            combined = (nodes[i] + nodes[i+1]).encode()
+            new_level.append(hashlib.sha256(combined).hexdigest())
+        nodes = new_level
+        
+    return nodes[0]
 
+def batch_process_signatures(signatures: list[str]) -> list[str]:
+    return [hashlib.sha256(sig.encode()).hexdigest() for sig in signatures]
 
-def wei_to_eth(wei: int) -> float:
-    if wei < 0:
-        raise ValueError("Wei amount cannot be negative")
-    return wei / WEI_PER_ETH
+class CacheProvider:
+    def __init__(self, size: int = 2048):
+        self._cache = {}
+        self._size = size
 
-
-def eth_to_wei(eth: Union[int, float]) -> int:
-    if eth < 0:
-        raise ValueError("ETH amount cannot be negative")
-    return int(eth * WEI_PER_ETH)
-
-
-def truncate_address(address: str, chars: int = 4) -> str:
-    if not address.startswith("0x") or len(address) != 42:
-        raise ValueError("Invalid Ethereum address length")
-    return f"{address[:chars + 2]}...{address[-chars:]}"
-
-
-def is_valid_tx_hash(tx_hash: str) -> bool:
-    return bool(re.match(r"^0x[a-fA-F0-9]{64}$", tx_hash))
-
-
-def calculate_gas_fee_eth(gas_limit: int, gas_price_gwei: float) -> float:
-    if gas_limit <= 0 or gas_price_gwei <= 0:
-        raise ValueError("Gas parameters must be positive")
-    total_gwei = gas_limit * gas_price_gwei
-    return total_gwei / GWEI_PER_ETH
+    def get_cached_hash(self, data: str) -> str:
+        if data not in self._cache:
+            if len(self._cache) >= self._size:
+                self._cache.pop(next(iter(self._cache)))
+            self._cache[data] = hashlib.sha256(data.encode()).hexdigest()
+        return self._cache[data]
