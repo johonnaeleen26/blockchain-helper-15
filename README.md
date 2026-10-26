@@ -1,23 +1,22 @@
 # blockchain-helper-15
 
-`blockchain-helper-15` is a lightweight Python toolkit designed to streamline interactions with EVM-compatible blockchains. It simplifies common tasks such as address validation, transaction gas estimation, and real-time event monitoring for decentralized applications.
+`blockchain-helper-15` is a lightweight Python utility designed to streamline common blockchain operations, including wallet address validation and transaction monitoring. It provides developers with a robust interface to interact with decentralized ledger data without the overhead of heavy full-node dependencies.
 
-## Features
+### Features
+* **Address Validator:** Regex-based and checksum-aware validation for EVM-compatible and Bitcoin-style addresses.
+* **Transaction Monitor:** Asynchronous websocket listeners to track pending transactions or specific address activity in real-time.
+* **Unit Converter:** Built-in utilities for seamless Wei to Ether (and vice versa) conversions with high-precision decimal support.
+* **Gas Estimator:** Integrated logic to fetch current gas prices and calculate optimal transaction fees based on network congestion.
 
-*   **Gas Oracle Integration:** Automatically fetches current network gas prices and suggests optimal priority fees based on real-time mempool congestion.
-*   **Smart Contract Interaction:** Provides a streamlined wrapper for Web3.py to deploy, interact with, and verify contracts with minimal boilerplate.
-*   **Event Watcher:** Built-in asynchronous listener for filtering and processing specific contract logs or transfer events in real-time.
-*   **Balance Aggregator:** Batch-query utility to retrieve ERC-20 token balances for multiple addresses in a single RPC call, significantly reducing latency.
+### Installation
 
-## Installation
-
-Ensure you have Python 3.9+ installed. You can install the package via pip:
+Ensure you have Python 3.8+ installed. You can install the package via pip:
 
 ```bash
 pip install blockchain-helper-15
 ```
 
-For development purposes, clone the repository and install dependencies:
+For development mode, clone the repository and install the requirements:
 
 ```bash
 git clone https://github.com/Developer/blockchain-helper-15.git
@@ -25,27 +24,23 @@ cd blockchain-helper-15
 pip install -r requirements.txt
 ```
 
-## Usage
-
-Below is a quick example of how to connect to a provider and retrieve the gas price:
+### Basic Usage
 
 ```python
-from blockchain_helper import Client
+from blockchain_helper import AddressValidator, GasEstimator
 
-# Initialize with your RPC provider
-client = Client(rpc_url="https://mainnet.infura.io/v3/YOUR_API_KEY")
-
-# Get recommended gas price in Gwei
-gas_price = client.get_gas_price()
-print(f"Current recommended gas price: {gas_price} Gwei")
-
-# Validate an Ethereum address
-is_valid = client.is_address("0x71C7656EC7ab88b098defB751B7401B5f6d8976F")
+# Validate an address
+validator = AddressValidator(network='ethereum')
+is_valid = validator.is_valid("0x71C7656EC7ab88b098defB751B7401B5f6d8976F")
 print(f"Address valid: {is_valid}")
+
+# Estimate gas for a standard transfer
+estimator = GasEstimator(rpc_url="https://cloudflare-eth.com")
+fee = estimator.get_current_gas_price()
+print(f"Current gas price: {fee} Gwei")
 ```
 
-## License
-
+### License
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Distributed under the MIT License. See `LICENSE` for more information.
