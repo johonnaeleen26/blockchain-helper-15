@@ -1,37 +1,26 @@
 import hashlib
-from functools import lru_cache
-from typing import Tuple
+import secrets
+from typing import Any, Dict
 
-@lru_cache(maxsize=1024)
-def compute_merkle_root(transactions: Tuple[str, ...]) -> str:
-    if not transactions:
-        return hashlib.sha256(b'').hexdigest()
-    
-    nodes = [hashlib.sha256(tx.encode()).hexdigest() for tx in transactions]
-    
-    while len(nodes) > 1:
-        if len(nodes) % 2 != 0:
-            nodes.append(nodes[-1])
-        
-        new_level = []
-        for i in range(0, len(nodes), 2):
-            combined = (nodes[i] + nodes[i+1]).encode()
-            new_level.append(hashlib.sha256(combined).hexdigest())
-        nodes = new_level
-        
-    return nodes[0]
+def generate_address() -> str:
+    return '0x' + secrets.token_hex(20)
 
-def batch_process_signatures(signatures: list[str]) -> list[str]:
-    return [hashlib.sha256(sig.encode()).hexdigest() for sig in signatures]
+def compute_hash(data: str) -> str:
+    return hashlib.sha256(data.encode()).hexdigest()
 
-class CacheProvider:
-    def __init__(self, size: int = 2048):
-        self._cache = {}
-        self._size = size
+def validate_transaction(tx: Dict[str, Any]) -> bool:
+    required = {'sender', 'receiver', 'amount', 'nonce'}
+    return all(key in tx for key in required)
 
-    def get_cached_hash(self, data: str) -> str:
-        if data not in self._cache:
-            if len(self._cache) >= self._size:
-                self._cache.pop(next(iter(self._cache)))
-            self._cache[data] = hashlib.sha256(data.encode()).hexdigest()
-        return self._cache[data]
+def format_wei(amount: int) -> float:
+    return amount / 10**18
+
+def sign_payload(data: str, private_key: str) -> str:
+    payload = f"{data}{private_key}"
+    return compute_hash(payload)
+
+def sanitize_input(val: str) -> str:
+    return val.strip().lower()
+
+def calculate_gas(limit: int, price: int) -> int:
+    return limit * price
