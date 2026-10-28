@@ -1,26 +1,25 @@
-from enum import Enum, unique
 from typing import Final
 
-@unique
-class NetworkMode(Enum):
-    MAINNET = 'mainnet'
-    TESTNET = 'testnet'
-    DEVNET = 'devnet'
-
+# Network constants
+DEFAULT_TIMEOUT: Final[float] = 30.0
 MAX_RETRIES: Final[int] = 3
-CACHE_TTL_SECONDS: Final[int] = 300
-CHUNK_SIZE: Final[int] = 1024
-RPC_TIMEOUT: Final[float] = 5.0
 
-DEFAULT_HEADERS: Final[dict[str, str]] = {
-    'Content-Type': 'application/json',
-    'User-Agent': 'blockchain-helper-15/1.0'
-}
+# Crypto optimization parameters
+BATCH_SIZE: Final[int] = 1000
+CACHE_SIZE: Final[int] = 512
 
-SUPPORTED_CHAINS: Final[tuple[str, ...]] = ('ethereum', 'solana', 'bitcoin')
+# Gas estimation
+GAS_LIMIT_BUFFER: Final[float] = 1.2
+MIN_GAS_PRICE_GWEI: Final[int] = 5
 
-BATCH_LIMIT: Final[int] = 50
-MIN_CONFIRMATIONS: Final[int] = 6
+# Node endpoints
+NODE_SYNC_INTERVAL: Final[int] = 5
+REQUEST_CONCURRENCY_LIMIT: Final[int] = 10
 
-def get_timeout(network: NetworkMode) -> float:
-    return RPC_TIMEOUT * (2 if network == NetworkMode.MAINNET else 1)
+# Block constants
+CONFIRMATION_THRESHOLD: Final[int] = 6
+POLLING_INTERVAL_SECONDS: Final[float] = 0.5
+
+# Database keys
+DB_PREFIX: Final[str] = 'bch15_'
+INDEX_MEMORY_LIMIT: Final[int] = 1024 * 1024 * 128
