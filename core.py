@@ -1,32 +1,40 @@
-import functools
-import time
-from typing import Any, Callable, Dict
+import hashlib
+from functools import lru_cache
+from typing import List, Sequence
 
-CACHE: Dict[str, Any] = {}
 
-class CoreEngine:
-    def __init__(self, ttl: int = 60):
-        self.ttl = ttl
+@lru_cache(maxsize=2048)
+def _double_sha256(data: bytes) -> bytes:
+    return hashlib.sha256(hashlib.sha256(data).digest()).digest()
 
-    @staticmethod
-    def memoize(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            key = f"{func.__name__}:{args}:{kwargs}"
-            if key in CACHE:
-                return CACHE[key]
-            result = func(*args, **kwargs)
-            CACHE[key] = result
-            return result
-        return wrapper
 
-    @memoize
-    def fetch_node_status(self, node_id: str) -> dict:
-        time.sleep(0.1)
-        return {"node_id": node_id, "status": "synced", "timestamp": time.time()}
+@lru_cache(maxsize=4096)
+def combine_hashes(left: bytes, right: bytes) -> bytes:
+    return _double_sha256(left + right)
 
-    def batch_process(self, data: list) -> list:
-        return [self.fetch_node_status(item) for item in data]
 
-def clear_cache() -> None:
-    CACHE.clear()
+class FastMerkleTree:
+    def __init__(self, tx_hashes: Sequence[bytes]) -> None:
+        self._leaf_hashes = list(tx_hashes)
+
+    def get_root(self) -> bytes:
+        if not self._leaf_hashes:
+            return b"\x00" * 32
+
+        current = self._leaf_hashes
+        while len(current) > 1:
+            if len(current) % 2 == 1:
+                current.append(current[-1])
+
+            next_level: List[bytes] = []
+            for i in range(0, len(current), 2):
+                next_level.append(combine_hashes(current[i], current[i + 1]))
+            current = next_level
+
+        return current[0]
+
+
+def calculate_block_merkle_root(transactions: List[bytes]) -> str:
+    leaf_hashes = [_double_sha256(tx) for tx in transactions]
+    tree = FastMerkleTree(leaf_hashes)
+    return tree.get_root().hex()
