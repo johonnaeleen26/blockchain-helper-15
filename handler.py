@@ -1,28 +1,32 @@
-import time
-import functools
-import requests
-from typing import Callable, Any, Optional
+import logging
+from typing import Any, Dict, Optional
 
-def retry_operation(retries: int = 3, delay: float = 1.0, backoff: float = 2.0):
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            attempt = 0
-            current_delay = delay
-            while attempt < retries:
-                try:
-                    return func(*args, **kwargs)
-                except (requests.RequestException, ConnectionError):
-                    attempt += 1
-                    if attempt >= retries:
-                        raise
-                    time.sleep(current_delay)
-                    current_delay *= backoff
-        return wrapper
-    return decorator
+REQUIRED_KEYS = {'tx_id', 'amount', 'sender', 'receiver'}
 
-@retry_operation(retries=3, delay=0.5)
-def fetch_blockchain_data(url: str) -> dict:
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
-    return response.json()
+class ProcessingError(Exception):
+    pass
+
+def validate_transaction(data: Dict[str, Any]) -> bool:
+    if not isinstance(data, dict):
+        return False
+    if not REQUIRED_KEYS.issubset(data.keys()):
+        return False
+    if not isinstance(data['amount'], (int, float)) or data['amount'] <= 0:
+        return False
+    return True
+
+def process_blockchain_stream(stream: Any) -> None:
+    for entry in stream:
+        try:
+            if not validate_transaction(entry):
+                logging.warning(f"Invalid transaction format: {entry}")
+                continue
+            
+            execute_transfer(entry)
+            
+        except Exception as e:
+            logging.error(f"Unexpected processing failure: {e}")
+            raise ProcessingError(f"Failed at tx {entry.get('tx_id')}") from e
+
+def execute_transfer(tx: Dict[str, Any]) -> None:
+    logging.info(f"Processing tx {tx['tx_id']}: {tx['amount']} units")
