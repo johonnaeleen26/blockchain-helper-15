@@ -1,28 +1,26 @@
-import logging
-from typing import List, Dict, Optional
+import re
 
-class BlockchainProcessor:
-    def __init__(self, node_url: str, timeout: int = 30):
-        self.node_url = node_url
-        self.timeout = timeout
-        self.logger = logging.getLogger(__name__)
+class ProcessingError(Exception):
+    pass
 
-    def validate_tx(self, tx: Dict) -> bool:
-        return all(key in tx for key in ('hash', 'sender', 'value'))
+def validate_tx_hash(tx_hash: str) -> bool:
+    return bool(re.fullmatch(r'0x[a-fA-F0-9]{64}', tx_hash))
 
-    def process_batch(self, transactions: List[Dict]) -> List[str]:
-        processed = []
-        for tx in transactions:
-            if self.validate_tx(tx):
-                self._execute(tx)
-                processed.append(tx['hash'])
-            else:
-                self.logger.warning(f"invalid transaction: {tx.get('hash', 'unknown')}")
-        return processed
+def validate_amount(amount: float) -> bool:
+    return isinstance(amount, (int, float)) and amount > 0
 
-    def _execute(self, tx: Dict) -> None:
-        self.logger.info(f"executing {tx['hash']}")
+def process_transactions(transactions: list):
+    for tx in transactions:
+        tx_hash = tx.get('hash')
+        amount = tx.get('amount')
 
-    @staticmethod
-    def format_wei(amount: int) -> float:
-        return amount / 10**18
+        if not validate_tx_hash(tx_hash):
+            raise ProcessingError(f'Invalid tx format: {tx_hash}')
+        
+        if not validate_amount(amount):
+            raise ProcessingError(f'Invalid amount: {amount}')
+        
+        execute_transfer(tx_hash, amount)
+
+def execute_transfer(tx_hash: str, amount: float):
+    print(f'Processing {tx_hash} for {amount} units')
