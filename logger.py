@@ -2,10 +2,11 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-def get_logger(name: str, log_file: str = "blockchain.log") -> logging.Logger:
-    path = Path(log_file)
-    path.parent.mkdir(parents=True, exist_ok=True)
+LOG_FILE = Path("blockchain-helper-15.log")
+MAX_BYTES = 5 * 1024 * 1024
+BACKUP_COUNT = 3
 
+def setup_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
@@ -14,16 +15,15 @@ def get_logger(name: str, log_file: str = "blockchain.log") -> logging.Logger:
     )
 
     handler = RotatingFileHandler(
-        path,
-        maxBytes=5 * 1024 * 1024,
-        backupCount=3
+        LOG_FILE, 
+        maxBytes=MAX_BYTES, 
+        backup_count=BACKUP_COUNT
     )
     handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
-    if not logger.handlers:
-        logger.addHandler(handler)
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
 
     return logger
