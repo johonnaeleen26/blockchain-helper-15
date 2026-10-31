@@ -1,50 +1,44 @@
-import json
 import os
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 DEFAULT_CONFIG: Dict[str, Any] = {
-    "rpc_url": "https://eth-mainnet.public.blastapi.io",
-    "network_id": 1,
-    "request_timeout": 15,
-    "max_retries": 3,
-    "gas_multiplier": 1.15,
+    "rpc_url": "https://eth-mainnet.g.alchemy.com/v2/demo",
+    "chain_id": 1,
+    "gas_limit": 21000,
+    "max_fee_per_gas_gwei": 50.0,
+    "max_priority_fee_gwei": 1.5,
+    "request_timeout": 30,
+    "retry_attempts": 3,
 }
 
 
-@dataclass
 class Config:
-    rpc_url: str = DEFAULT_CONFIG["rpc_url"]
-    network_id: int = DEFAULT_CONFIG["network_id"]
-    request_timeout: int = DEFAULT_CONFIG["request_timeout"]
-    max_retries: int = DEFAULT_CONFIG["max_retries"]
-    gas_multiplier: float = DEFAULT_CONFIG["gas_multiplier"]
+    def __init__(self, overrides: Dict[str, Any] | None = None) -> None:
+        self._config = DEFAULT_CONFIG.copy()
+        if overrides:
+            self._config.update(overrides)
+        self._load_from_env()
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Config":
-        valid_keys = {f.name for f in cls.__dataclass_fields__.values()}
-        filtered = {k: v for k, v in data.items() if k in valid_keys}
-        return cls(**filtered)
+    def _load_from_env(self) -> None:
+        env_mappings = {
+            "ETH_RPC_URL": ("rpc_url", str),
+            "ETH_CHAIN_ID": ("chain_id", int),
+            "ETH_GAS_LIMIT": ("gas_limit", int),
+            "ETH_MAX_FEE_GWEI": ("max_fee_per_gas_gwei", float),
+            "ETH_MAX_PRIORITY_FEE_GWEI": ("max_priority_fee_gwei", float),
+            "ETH_TIMEOUT": ("request_timeout", int),
+            "ETH_RETRY_ATTEMPTS": ("retry_attempts", int),
+        }
+        for env_var, (key, cast_type) in env_mappings.items():
+            val = os.getenv(env_var)
+            if val is not None:
+                try:
+                    self._config[key] = cast_type(val)
+                except ValueError:
+                    pass
 
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._config.get(key, default)
 
-class ConfigLoader:
-    def __init__(self, path: Optional[str] = None):
-        self.path = path
-
-    def load(self) -> Config:
-        settings = DEFAULT_CONFIG.copy()
-
-        if self.path and os.path.exists(self.path):
-            with open(self.path, "r", encoding="utf-8") as file:
-                file_settings = json.load(file)
-                settings.update(file_settings)
-
-        rpc_env = os.getenv("BLOCKCHAIN_RPC_URL")
-        if rpc_env:
-            settings["rpc_url"] = rpc_env
-
-        net_env = os.getenv("BLOCKCHAIN_NETWORK_ID")
-        if net_env and net_env.isdigit():
-            settings["network_id"] = int(net_env)
-
-        return Config.from_dict(settings)
+    def to_dict(self) -> Dict[str, Any]:
+        return self._config.copy()
