@@ -1,33 +1,36 @@
 import functools
-import hashlib
-from typing import Any, Dict, List
+from typing import Callable, Any
+from collections import deque
 
-class BlockProcessor:
-    def __init__(self, cache_size: int = 1024):
-        self.cache_size = cache_size
+class CacheManager:
+    def __init__(self, capacity: int = 1024):
+        self.capacity = capacity
+        self.cache = {}
+        self.order = deque()
 
-    @functools.lru_cache(maxsize=1024)
-    def derive_hash(self, data: str) -> str:
-        return hashlib.sha256(data.encode()).hexdigest()
+    def __call__(self, func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            key = (args, frozenset(kwargs.items()))
+            if key in self.cache:
+                self.order.remove(key)
+                self.order.append(key)
+                return self.cache[key]
+            
+            result = func(*args, **kwargs)
+            
+            if len(self.cache) >= self.capacity:
+                oldest = self.order.popleft()
+                del self.cache[oldest]
+            
+            self.cache[key] = result
+            self.order.append(key)
+            return result
+        return wrapper
 
-    def batch_process(self, transactions: List[Dict[str, Any]]) -> List[str]:
-        return [self.derive_hash(str(tx)) for tx in transactions]
+@CacheManager(capacity=2048)
+def calculate_hash_difficulty(block_height: int, nonce: int) -> int:
+    return (block_height ^ nonce) % 0xFFFF
 
-    @staticmethod
-    def validate_integrity(hashes: List[str]) -> bool:
-        return len(hashes) == len(set(hashes))
-
-class TransactionManager:
-    __slots__ = ('processor', 'buffer')
-
-    def __init__(self):
-        self.processor = BlockProcessor()
-        self.buffer = []
-
-    def append(self, tx: Dict[str, Any]) -> None:
-        self.buffer.append(tx)
-
-    def commit(self) -> List[str]:
-        result = self.processor.batch_process(self.buffer)
-        self.buffer.clear()
-        return result
+def batch_process_transactions(transactions: list) -> list:
+    return [tx.upper() for tx in transactions if tx]
