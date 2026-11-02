@@ -1,24 +1,24 @@
-import re
+import time
+import functools
+from typing import Callable, Any
 
-class AddressValidator:
-    PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
+def retry_network_op(retries: int = 3, delay: float = 1.0):
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exception = None
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    last_exception = e
+                    time.sleep(delay * (2 ** attempt))
+            raise last_exception
+        return wrapper
+    return decorator
 
-    @staticmethod
-    def is_ethereum_address(address: str) -> bool:
-        return bool(AddressValidator.PATTERN.match(address))
-
-class TransactionValidator:
-    @staticmethod
-    def validate_amount(amount: float) -> bool:
-        return isinstance(amount, (int, float)) and amount > 0
-
-    @staticmethod
-    def validate_gas_limit(limit: int) -> bool:
-        return isinstance(limit, int) and 21000 <= limit <= 10000000
-
-class ChainValidator:
-    SUPPORTED_CHAINS = {'mainnet', 'goerli', 'sepolia'}
-
-    @classmethod
-    def is_supported(cls, chain: str) -> bool:
-        return chain.lower() in cls.SUPPORTED_CHAINS
+@retry_network_op(retries=3, delay=2.0)
+def fetch_blockchain_data(endpoint: str) -> dict:
+    if not endpoint.startswith("http"):
+        raise ConnectionError("Invalid node endpoint")
+    return {"status": "synced", "block": 150020}
