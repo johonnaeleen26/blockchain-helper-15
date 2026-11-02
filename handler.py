@@ -1,32 +1,38 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
-REQUIRED_KEYS = {'tx_id', 'amount', 'sender', 'receiver'}
-
-class ProcessingError(Exception):
+class BlockchainError(Exception):
     pass
 
-def validate_transaction(data: Dict[str, Any]) -> bool:
-    if not isinstance(data, dict):
-        return False
-    if not REQUIRED_KEYS.issubset(data.keys()):
-        return False
-    if not isinstance(data['amount'], (int, float)) or data['amount'] <= 0:
-        return False
-    return True
+class TransactionHandler:
+    def __init__(self, client: Any):
+        self.client = client
+        self.logger = logging.getLogger(__name__)
 
-def process_blockchain_stream(stream: Any) -> None:
-    for entry in stream:
+    def execute_transaction(self, tx_data: dict) -> Optional[str]:
+        if not isinstance(tx_data, dict) or not tx_data:
+            self.logger.error("Invalid transaction payload")
+            return None
+
         try:
-            if not validate_transaction(entry):
-                logging.warning(f"Invalid transaction format: {entry}")
-                continue
-            
-            execute_transfer(entry)
-            
+            response = self.client.send(tx_data)
+            if not response:
+                raise BlockchainError("Empty response from node")
+            return response.get('tx_hash')
+        except ConnectionError as e:
+            self.logger.error(f"Network connectivity failure: {e}")
+        except TimeoutError:
+            self.logger.warning("Transaction request timed out")
         except Exception as e:
-            logging.error(f"Unexpected processing failure: {e}")
-            raise ProcessingError(f"Failed at tx {entry.get('tx_id')}") from e
+            self.logger.critical(f"Unexpected blockchain error: {e}")
+            raise BlockchainError("Critical failure in transmission") from e
+        return None
 
-def execute_transfer(tx: Dict[str, Any]) -> None:
-    logging.info(f"Processing tx {tx['tx_id']}: {tx['amount']} units")
+    def validate_node_health(self) -> bool:
+        try:
+            return self.client.get_status().get('is_synced', False)
+        except (AttributeError, KeyError):
+            self.logger.error("Node status format mismatch")
+            return False
+        except Exception:
+            return False
