@@ -1,51 +1,28 @@
 import hashlib
-import re
-from decimal import Decimal, ROUND_DOWN
+import json
+from typing import Any, Dict
 
-ETH_ADDRESS_PATTERN = re.compile(r"^0x[a-fA-F0-9]{40}$")
+def calculate_hash(data: Dict[str, Any]) -> str:
+    encoded = json.dumps(data, sort_keys=True).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
+def format_wei_to_ether(wei: int) -> float:
+    return float(wei) / 10**18
 
-def normalize_hex(hex_str: str) -> str:
-    cleaned = hex_str.strip().lower()
-    if cleaned.startswith("0x"):
-        cleaned = cleaned[2:]
-    if len(cleaned) % 2 != 0:
-        cleaned = "0" + cleaned
-    return f"0x{cleaned}"
+def validate_address(address: str) -> bool:
+    if not isinstance(address, str) or len(address) != 42:
+        return False
+    return address.startswith('0x') and all(c in '0123456789abcdefABCDEF' for c in address[2:])
 
+def sanitize_payload(data: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in data.items() if v is not None}
 
-def to_checksum_address(address: str) -> str:
-    if not ETH_ADDRESS_PATTERN.match(address):
-        raise ValueError(f"Invalid Ethereum address: {address}")
-    addr_lower = address.lower().replace("0x", "")
-    hashed = hashlib.sha3_256(addr_lower.encode("utf-8")).hexdigest()
-    checksum = "0x"
-    for i, char in enumerate(addr_lower):
-        if char.isdigit():
-            checksum += char
-        elif int(hashed[i], 16) >= 8:
-            checksum += char.upper()
-        else:
-            checksum += char.lower()
-    return checksum
+def hex_to_int(hex_val: str) -> int:
+    return int(hex_val, 16)
 
-
-def wei_to_ether(wei: int) -> Decimal:
-    if wei < 0:
-        raise ValueError("Wei amount cannot be negative")
-    return (Decimal(wei) / Decimal(10**18)).quantize(
-        Decimal("0.000000000000000001"), rounding=ROUND_DOWN
-    )
-
-
-def ether_to_wei(ether: str | float | Decimal) -> int:
-    val = Decimal(str(ether))
-    if val < 0:
-        raise ValueError("Ether amount cannot be negative")
-    return int(val * Decimal(10**18))
-
-
-def format_tx_hash(tx_hash: str, prefix_len: int = 6, suffix_len: int = 4) -> str:
-    if not tx_hash.startswith("0x") or len(tx_hash) < (prefix_len + suffix_len + 2):
-        return tx_hash
-    return f"{tx_hash[:prefix_len]}...{tx_hash[-suffix_len:]}"
+def create_response(status: str, data: Any = None) -> Dict[str, Any]:
+    return {
+        'status': status,
+        'payload': data,
+        'version': '1.0.0'
+    }
