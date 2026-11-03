@@ -1,38 +1,25 @@
-import logging
-from typing import Any, Optional
+import time
+import functools
+import requests
+from typing import Callable, Any
 
-class BlockchainError(Exception):
-    pass
+def retry_request(max_retries: int = 3, delay: float = 1.0):
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (requests.exceptions.RequestException, ConnectionError) as e:
+                    last_exception = e
+                    time.sleep(delay * (2 ** attempt))
+            raise last_exception
+        return wrapper
+    return decorator
 
-class TransactionHandler:
-    def __init__(self, client: Any):
-        self.client = client
-        self.logger = logging.getLogger(__name__)
-
-    def execute_transaction(self, tx_data: dict) -> Optional[str]:
-        if not isinstance(tx_data, dict) or not tx_data:
-            self.logger.error("Invalid transaction payload")
-            return None
-
-        try:
-            response = self.client.send(tx_data)
-            if not response:
-                raise BlockchainError("Empty response from node")
-            return response.get('tx_hash')
-        except ConnectionError as e:
-            self.logger.error(f"Network connectivity failure: {e}")
-        except TimeoutError:
-            self.logger.warning("Transaction request timed out")
-        except Exception as e:
-            self.logger.critical(f"Unexpected blockchain error: {e}")
-            raise BlockchainError("Critical failure in transmission") from e
-        return None
-
-    def validate_node_health(self) -> bool:
-        try:
-            return self.client.get_status().get('is_synced', False)
-        except (AttributeError, KeyError):
-            self.logger.error("Node status format mismatch")
-            return False
-        except Exception:
-            return False
+@retry_request(max_retries=3, delay=2.0)
+def fetch_blockchain_data(url: str) -> dict:
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
+    return response.json()
