@@ -1,49 +1,59 @@
 import re
-from typing import Any, Dict, List
-
-ADDRESS_REGEX = re.compile(r"^0x[a-fA-F0-9]{40}$")
-TX_HASH_REGEX = re.compile(r"^0x[a-fA-F0-9]{64}$")
+from typing import Any, Dict
 
 
-class InvalidPayloadError(Exception):
+class ProcessingError(Exception):
     pass
 
 
-def validate_payload(data: Dict[str, Any]) -> None:
-    if not isinstance(data, dict):
-        raise InvalidPayloadError("Payload must be a dictionary")
-
-    sender = data.get("sender")
-    recipient = data.get("recipient")
-    amount = data.get("amount")
-    tx_hash = data.get("tx_hash")
-
-    if not sender or not ADDRESS_REGEX.match(str(sender)):
-        raise InvalidPayloadError(f"Invalid sender address: {sender}")
-
-    if not recipient or not ADDRESS_REGEX.match(str(recipient)):
-        raise InvalidPayloadError(f"Invalid recipient address: {recipient}")
-
-    if not isinstance(amount, (int, float)) or amount <= 0:
-        raise InvalidPayloadError(f"Invalid transaction amount: {amount}")
-
-    if tx_hash and not TX_HASH_REGEX.match(str(tx_hash)):
-        raise InvalidPayloadError(f"Invalid transaction hash: {tx_hash}")
+class InvalidTransactionError(ProcessingError):
+    pass
 
 
-def process_transaction_queue(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    results = []
-    for item in items:
-        try:
-            validate_payload(item)
-            results.append({
-                "tx_hash": item.get("tx_hash"),
-                "status": "validated",
-                "amount": item["amount"]
-            })
-        except InvalidPayloadError as err:
-            results.append({
-                "status": "rejected",
-                "reason": str(err)
-            })
-    return results
+class InsufficientGasError(ProcessingError):
+    pass
+
+
+class TransactionProcessor:
+    ADDRESS_REGEX = re.compile(r"^0x[a-fA-F0-9]{40}$")
+    MIN_GAS_LIMIT = 21000
+
+    def process_raw_tx(self, tx_data: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(tx_data, dict):
+            raise InvalidTransactionError("Payload must be a dictionary")
+
+        required_fields = {"to", "value", "gas_limit", "gas_price", "nonce"}
+        missing = required_fields - tx_data.keys()
+        if missing:
+            raise InvalidTransactionError(f"Missing required fields: {', '.join(sorted(missing))}")
+
+        recipient = tx_data["to"]
+        if not isinstance(recipient, str) or not self.ADDRESS_REGEX.match(recipient):
+            raise InvalidTransactionError(f"Invalid Ethereum recipient address: {recipient}")
+
+        value = tx_data["value"]
+        if not isinstance(value, int) or value < 0:
+            raise InvalidTransactionError("Transaction value must be a non-negative integer")
+
+        gas_limit = tx_data["gas_limit"]
+        if not isinstance(gas_limit, int) or gas_limit < self.MIN_GAS_LIMIT:
+            raise InsufficientGasError(f"Gas limit must be at least {self.MIN_GAS_LIMIT}")
+
+        gas_price = tx_data["gas_price"]
+        if not isinstance(gas_price, int) or gas_price <= 0:
+            raise InvalidTransactionError("Gas price must be a positive integer")
+
+        nonce = tx_data["nonce"]
+        if not isinstance(nonce, int) or nonce < 0:
+            raise InvalidTransactionError("Nonce must be a non-negative integer")
+
+        max_fee = gas_limit * gas_price
+        tx_hash = f"0x{(abs(hash(f'{recipient}{nonce}{value}'))):016x}"
+        return {
+            "processed": True,
+            "hash": tx_hash,
+            "recipient": recipient.lower(),
+            "value_wei": value,
+            "max_fee_wei": max_fee,
+            "nonce": nonce,
+        }
