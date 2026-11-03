@@ -1,22 +1,44 @@
-import hashlib
-import json
-from typing import Any, Dict
+import asyncio
+import functools
+import logging
+from typing import Any, Callable, Tuple, Type
 
-def generate_hash(data: Dict[str, Any]) -> str:
-    encoded = json.dumps(data, sort_keys=True).encode()
-    return hashlib.sha256(encoded).hexdigest()
+logger = logging.getLogger(__name__)
 
-def validate_address(address: str) -> bool:
-    return len(address) == 42 and address.startswith('0x')
 
-def format_wei(value: int) -> float:
-    return value / 10**18
+def retry_network_op(
+    retries: int = 3,
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    exceptions: Tuple[Type[Exception], ...] = (Exception,),
+) -> Callable:
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            current_delay = delay
+            for attempt in range(1, retries + 1):
+                try:
+                    return await func(*args, **kwargs)
+                except exceptions as err:
+                    if attempt == retries:
+                        logger.error(
+                            "RPC operation %s failed after %d attempts: %s",
+                            func.__name__,
+                            retries,
+                            err,
+                        )
+                        raise
+                    logger.warning(
+                        "Attempt %d/%d for %s failed: %s. Retrying in %.1fs",
+                        attempt,
+                        retries,
+                        func.__name__,
+                        err,
+                        current_delay,
+                    )
+                    await asyncio.sleep(current_delay)
+                    current_delay *= backoff
 
-def parse_transaction(raw_data: str) -> Dict[str, Any]:
-    try:
-        return json.loads(raw_data)
-    except (ValueError, TypeError):
-        return {}
+        return wrapper
 
-def calculate_gas_cost(gas_limit: int, gas_price: int) -> int:
-    return gas_limit * gas_price
+    return decorator
