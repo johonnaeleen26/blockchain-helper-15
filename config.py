@@ -1,44 +1,56 @@
+import json
 import os
-from typing import Any, Dict
-
-DEFAULT_CONFIG: Dict[str, Any] = {
-    "rpc_url": "https://eth-mainnet.g.alchemy.com/v2/demo",
-    "chain_id": 1,
-    "gas_limit": 21000,
-    "max_fee_per_gas_gwei": 50.0,
-    "max_priority_fee_gwei": 1.5,
-    "request_timeout": 30,
-    "retry_attempts": 3,
-}
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional
 
 
-class Config:
-    def __init__(self, overrides: Dict[str, Any] | None = None) -> None:
-        self._config = DEFAULT_CONFIG.copy()
-        if overrides:
-            self._config.update(overrides)
-        self._load_from_env()
+@dataclass
+class NodeConfig:
+    rpc_url: str = "https://cloudflare-eth.com"
+    chain_id: int = 1
+    timeout: int = 30
+    max_retries: int = 3
 
-    def _load_from_env(self) -> None:
-        env_mappings = {
-            "ETH_RPC_URL": ("rpc_url", str),
-            "ETH_CHAIN_ID": ("chain_id", int),
-            "ETH_GAS_LIMIT": ("gas_limit", int),
-            "ETH_MAX_FEE_GWEI": ("max_fee_per_gas_gwei", float),
-            "ETH_MAX_PRIORITY_FEE_GWEI": ("max_priority_fee_gwei", float),
-            "ETH_TIMEOUT": ("request_timeout", int),
-            "ETH_RETRY_ATTEMPTS": ("retry_attempts", int),
-        }
-        for env_var, (key, cast_type) in env_mappings.items():
-            val = os.getenv(env_var)
-            if val is not None:
-                try:
-                    self._config[key] = cast_type(val)
-                except ValueError:
-                    pass
 
-    def get(self, key: str, default: Any = None) -> Any:
-        return self._config.get(key, default)
+@dataclass
+class AppConfig:
+    node: NodeConfig = field(default_factory=NodeConfig)
+    gas_limit_multiplier: float = 1.1
+    default_account: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        return self._config.copy()
+
+class ConfigLoader:
+    def __init__(self, config_path: Optional[str] = None):
+        self.config_path = config_path
+
+    def load(self) -> AppConfig:
+        data: Dict[str, Any] = {}
+        if self.config_path and os.path.exists(self.config_path):
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+        node_data = data.get("node", {})
+        env_rpc = os.getenv("BLOCKCHAIN_RPC_URL")
+        if env_rpc:
+            node_data["rpc_url"] = env_rpc
+
+        env_chain = os.getenv("BLOCKCHAIN_CHAIN_ID")
+        if env_chain and env_chain.isdigit():
+            node_data["chain_id"] = int(env_chain)
+
+        node_config = NodeConfig(
+            rpc_url=node_data.get("rpc_url", NodeConfig.rpc_url),
+            chain_id=node_data.get("chain_id", NodeConfig.chain_id),
+            timeout=node_data.get("timeout", NodeConfig.timeout),
+            max_retries=node_data.get("max_retries", NodeConfig.max_retries),
+        )
+
+        return AppConfig(
+            node=node_config,
+            gas_limit_multiplier=data.get(
+                "gas_limit_multiplier", AppConfig.gas_limit_multiplier
+            ),
+            default_account=data.get(
+                "default_account", os.getenv("DEFAULT_ACCOUNT")
+            ),
+        )
