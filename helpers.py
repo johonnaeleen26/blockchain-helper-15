@@ -1,44 +1,23 @@
-import asyncio
-import functools
-import logging
-from typing import Any, Callable, Tuple, Type
+import hashlib
+import hmac
+from typing import Dict, Any
 
-logger = logging.getLogger(__name__)
+def generate_signature(api_secret: str, payload: str) -> str:
+    return hmac.new(
+        api_secret.encode('utf-8'),
+        payload.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
 
+def format_currency(value: float, precision: int = 8) -> str:
+    return f"{value:.{precision}f}"
 
-def retry_network_op(
-    retries: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    exceptions: Tuple[Type[Exception], ...] = (Exception,),
-) -> Callable:
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            current_delay = delay
-            for attempt in range(1, retries + 1):
-                try:
-                    return await func(*args, **kwargs)
-                except exceptions as err:
-                    if attempt == retries:
-                        logger.error(
-                            "RPC operation %s failed after %d attempts: %s",
-                            func.__name__,
-                            retries,
-                            err,
-                        )
-                        raise
-                    logger.warning(
-                        "Attempt %d/%d for %s failed: %s. Retrying in %.1fs",
-                        attempt,
-                        retries,
-                        func.__name__,
-                        err,
-                        current_delay,
-                    )
-                    await asyncio.sleep(current_delay)
-                    current_delay *= backoff
+def validate_payload(data: Dict[str, Any], required: list) -> bool:
+    return all(key in data for key in required)
 
-        return wrapper
+def sanitize_address(address: str) -> str:
+    return address.strip().lower()
 
-    return decorator
+def batch_process(items: list, chunk_size: int = 10):
+    for i in range(0, len(items), chunk_size):
+        yield items[i:i + chunk_size]
