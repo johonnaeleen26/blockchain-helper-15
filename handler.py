@@ -1,25 +1,28 @@
-import time
-import functools
-import requests
-from typing import Callable, Any
+import re
 
-def retry_request(max_retries: int = 3, delay: float = 1.0):
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            last_exception = None
-            for attempt in range(max_retries):
-                try:
-                    return func(*args, **kwargs)
-                except (requests.exceptions.RequestException, ConnectionError) as e:
-                    last_exception = e
-                    time.sleep(delay * (2 ** attempt))
-            raise last_exception
-        return wrapper
-    return decorator
+class ValidationError(Exception):
+    pass
 
-@retry_request(max_retries=3, delay=2.0)
-def fetch_blockchain_data(url: str) -> dict:
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
-    return response.json()
+def validate_tx_hash(tx_hash: str) -> bool:
+    if not isinstance(tx_hash, str) or not re.fullmatch(r'0x[a-fA-F0-9]{64}', tx_hash):
+        raise ValidationError(f"Invalid transaction hash format: {tx_hash}")
+    return True
+
+def validate_address(address: str) -> bool:
+    if not isinstance(address, str) or not re.fullmatch(r'0x[a-fA-F0-9]{40}', address):
+        raise ValidationError(f"Invalid address format: {address}")
+    return True
+
+def process_transactions(queue: list):
+    for item in queue:
+        try:
+            tx_hash = item.get("hash")
+            address = item.get("address")
+            
+            validate_tx_hash(tx_hash)
+            validate_address(address)
+            
+            print(f"Processing {tx_hash} for {address}")
+        except (ValidationError, AttributeError) as e:
+            print(f"Skipping invalid entry: {e}")
+            continue
