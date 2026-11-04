@@ -1,6 +1,6 @@
 import hashlib
 import hmac
-from typing import Dict, Any
+from typing import Dict
 
 def generate_signature(api_secret: str, payload: str) -> str:
     return hmac.new(
@@ -9,15 +9,22 @@ def generate_signature(api_secret: str, payload: str) -> str:
         hashlib.sha256
     ).hexdigest()
 
-def format_currency(value: float, precision: int = 8) -> str:
-    return f"{value:.{precision}f}"
+def format_address(address: str) -> str:
+    if not address.startswith('0x'):
+        return f'0x{address}'
+    return address.lower()
 
-def validate_payload(data: Dict[str, Any], required: list) -> bool:
-    return all(key in data for key in required)
+def parse_units(amount: float, decimals: int = 18) -> int:
+    return int(amount * (10**decimals))
 
-def sanitize_address(address: str) -> str:
-    return address.strip().lower()
+def validate_tx_hash(tx_hash: str) -> bool:
+    if len(tx_hash) != 66:
+        return False
+    try:
+        int(tx_hash, 16)
+        return True
+    except ValueError:
+        return False
 
-def batch_process(items: list, chunk_size: int = 10):
-    for i in range(0, len(items), chunk_size):
-        yield items[i:i + chunk_size]
+def dict_to_query_string(params: Dict[str, str]) -> str:
+    return '&'.join([f'{k}={v}' for k, v in params.items()])
