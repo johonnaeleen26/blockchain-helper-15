@@ -1,36 +1,25 @@
+import time
 import functools
+import requests
 from typing import Callable, Any
-from collections import deque
 
-class CacheManager:
-    def __init__(self, capacity: int = 1024):
-        self.capacity = capacity
-        self.cache = {}
-        self.order = deque()
-
-    def __call__(self, func: Callable) -> Callable:
+def retry(retries: int = 3, delay: float = 1.0, exceptions=(requests.RequestException,)): 
+    def decorator(func: Callable):
         @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            key = (args, frozenset(kwargs.items()))
-            if key in self.cache:
-                self.order.remove(key)
-                self.order.append(key)
-                return self.cache[key]
-            
-            result = func(*args, **kwargs)
-            
-            if len(self.cache) >= self.capacity:
-                oldest = self.order.popleft()
-                del self.cache[oldest]
-            
-            self.cache[key] = result
-            self.order.append(key)
-            return result
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    time.sleep(delay * (2 ** attempt))
+            raise last_exception
         return wrapper
+    return decorator
 
-@CacheManager(capacity=2048)
-def calculate_hash_difficulty(block_height: int, nonce: int) -> int:
-    return (block_height ^ nonce) % 0xFFFF
-
-def batch_process_transactions(transactions: list) -> list:
-    return [tx.upper() for tx in transactions if tx]
+@retry(retries=3, delay=2.0)
+def fetch_blockchain_data(url: str) -> dict:
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
+    return response.json()
