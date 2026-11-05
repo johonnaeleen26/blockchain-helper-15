@@ -1,28 +1,21 @@
-import hashlib
-import json
-from typing import Any, Dict
+import time
+import functools
+from typing import Callable, Any
 
-def calculate_hash(data: Dict[str, Any]) -> str:
-    encoded = json.dumps(data, sort_keys=True).encode()
-    return hashlib.sha256(encoded).hexdigest()
+MAX_RETRIES = 3
+RETRY_DELAY = 1.0
 
-def format_wei_to_ether(wei: int) -> float:
-    return float(wei) / 10**18
-
-def validate_address(address: str) -> bool:
-    if not isinstance(address, str) or len(address) != 42:
-        return False
-    return address.startswith('0x') and all(c in '0123456789abcdefABCDEF' for c in address[2:])
-
-def sanitize_payload(data: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in data.items() if v is not None}
-
-def hex_to_int(hex_val: str) -> int:
-    return int(hex_val, 16)
-
-def create_response(status: str, data: Any = None) -> Dict[str, Any]:
-    return {
-        'status': status,
-        'payload': data,
-        'version': '1.0.0'
-    }
+def retry_network_op(func: Callable) -> Callable:
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        attempts = 0
+        while attempts < MAX_RETRIES:
+            try:
+                return func(*args, **kwargs)
+            except (ConnectionError, TimeoutError) as e:
+                attempts += 1
+                if attempts == MAX_RETRIES:
+                    raise e
+                time.sleep(RETRY_DELAY * attempts)
+        return None
+    return wrapper
