@@ -1,30 +1,42 @@
 import hashlib
-import hmac
-from typing import Dict
+from typing import Union
 
-def generate_signature(api_secret: str, payload: str) -> str:
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        payload.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
 
-def format_address(address: str) -> str:
-    if not address.startswith('0x'):
-        return f'0x{address}'
-    return address.lower()
+def satoshi_to_btc(satoshi: int) -> float:
+    return satoshi / 100_000_000.0
 
-def parse_units(amount: float, decimals: int = 18) -> int:
-    return int(amount * (10**decimals))
 
-def validate_tx_hash(tx_hash: str) -> bool:
-    if len(tx_hash) != 66:
-        return False
-    try:
-        int(tx_hash, 16)
-        return True
-    except ValueError:
-        return False
+def btc_to_satoshi(btc: float) -> int:
+    return int(round(btc * 100_000_000))
 
-def dict_to_query_string(params: Dict[str, str]) -> str:
-    return '&'.join([f'{k}={v}' for k, v in params.items()])
+
+def wei_to_eth(wei: int) -> float:
+    return wei / 10**18
+
+
+def eth_to_wei(eth: float) -> int:
+    return int(round(eth * 10**18))
+
+
+def truncate_address(address: str, leading: int = 6, trailing: int = 4) -> str:
+    if not address or len(address) <= leading + trailing:
+        return address
+    return f"{address[:leading]}...{address[-trailing:]}"
+
+
+def double_sha256(data: bytes) -> str:
+    first = hashlib.sha256(data).digest()
+    return hashlib.sha256(first).hexdigest()
+
+
+def format_hex(value: Union[int, str, bytes]) -> str:
+    if isinstance(value, int):
+        return hex(value)
+    if isinstance(value, bytes):
+        return "0x" + value.hex()
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned.startswith("0x"):
+            return "0x" + cleaned
+        return cleaned
+    raise TypeError("Unsupported format type")
