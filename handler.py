@@ -1,28 +1,53 @@
-import re
+import json
+import time
+import urllib.error
+import urllib.request
+from functools import wraps
+from typing import Any, Callable, Dict, Optional
 
-class ValidationError(Exception):
+
+class NetworkError(Exception):
     pass
 
-def validate_tx_hash(tx_hash: str) -> bool:
-    if not isinstance(tx_hash, str) or not re.fullmatch(r'0x[a-fA-F0-9]{64}', tx_hash):
-        raise ValidationError(f"Invalid transaction hash format: {tx_hash}")
-    return True
 
-def validate_address(address: str) -> bool:
-    if not isinstance(address, str) or not re.fullmatch(r'0x[a-fA-F0-9]{40}', address):
-        raise ValidationError(f"Invalid address format: {address}")
-    return True
+def retry_network_op(max_retries: int = 3, backoff_factor: float = 0.5):
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            delay = backoff_factor
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except (urllib.error.URLError, TimeoutError, OSError) as err:
+                    if attempt == max_retries:
+                        raise NetworkError(f"Failed after {max_retries} attempts: {err}") from err
+                    time.sleep(delay)
+                    delay *= 2
+        return wrapper
+    return decorator
 
-def process_transactions(queue: list):
-    for item in queue:
-        try:
-            tx_hash = item.get("hash")
-            address = item.get("address")
-            
-            validate_tx_hash(tx_hash)
-            validate_address(address)
-            
-            print(f"Processing {tx_hash} for {address}")
-        except (ValidationError, AttributeError) as e:
-            print(f"Skipping invalid entry: {e}")
-            continue
+
+class RPCRequestHandler:
+    def __init__(self, endpoint_url: str, timeout: int = 10):
+        self.endpoint_url = endpoint_url
+        self.timeout = timeout
+
+    @retry_network_op(max_retries=4, backoff_factor=0.5)
+    def send_rpc_request(self, method: str, params: Optional[list] = None) -> Dict[str, Any]:
+        payload = {
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params or [],
+            "id": 1,
+        }
+        data = json.dumps(payload).encode("utf-8")
+        request = urllib.request.Request(
+            self.endpoint_url,
+            data=data,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            if "error" in result:
+                raise NetworkError(f"RPC error payload received: {result['error']}")
+            return result.get("result")
